@@ -1,0 +1,64 @@
+# 编译产物
+singboxconfig
+bin/
+__debug_*
+
+# IDE 配置
+.idea
+.vscode
+
+# 系统文件
+.DS_Store
+Thumbs.db
+
+# 数据库文件
+*.db
+*.db-shm
+*.db-wal
+
+# 配置与数据文件
+cmd/server/data.json
+cmd/server/ss.conf
+cmd/server/index.html
+data.json
+*.conf
+
+# 环境变量与敏感信息
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+
+# 日志文件
+*.log
+logs/
+
+# 临时文件
+tmp/
+temp/
+*.tmp
+*.swp
+*.swo
+*~
+
+# 测试覆盖率
+coverage.out
+*.test
+*.prof
+
+# 前端
+web/node_modules/
+web/dist/
+web/.env
+web/.env.local
+
+# 测试目录
+cmd/test-migrate/
+
+# 备份文件
+*.bak
+*.backup

@@ -1,0 +1,525 @@
+:root {
+  --primary-color: #007aff;
+  --bg-gradient: linear-gradient(135deg, #f5f7fa 0%, #e4e7eb 100%);
+  --sider-bg: rgba(255, 255, 255, 0.75);
+  --text-primary: #1d1d1f;
+  --text-secondary: #86868b;
+  --border-color: rgba(0, 0, 0, 0.06);
+  --card-radius: 16px; /* Slightly smaller radius for compact look */
+  --glass-backdrop: blur(20px) saturate(180%);
+  --soft-shadow: 0 4px 20px 0 rgba(31, 38, 135, 0.05);
+  --hover-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.1);
+}
+
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro SC", "SF Pro Text", "Helvetica Neue", Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  color: var(--text-primary);
+  background: var(--bg-gradient);
+  min-height: 100vh;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+.app-shell {
+  min-height: 100vh;
+  background: transparent !important;
+}
+
+.auth-screen {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background:
+    radial-gradient(circle at top left, rgba(0, 122, 255, 0.18), transparent 32%),
+    radial-gradient(circle at bottom right, rgba(16, 185, 129, 0.14), transparent 28%),
+    var(--bg-gradient);
+}
+
+.auth-panel {
+  width: min(440px, 100%);
+  padding: 28px;
+  border-radius: 24px;
+  background: rgba(255, 255, 255, 0.82);
+  backdrop-filter: blur(18px) saturate(180%);
+  -webkit-backdrop-filter: blur(18px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.65);
+  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.12);
+}
+
+.auth-panel-loading {
+  display: grid;
+  gap: 14px;
+  justify-items: center;
+}
+
+.auth-panel-eyebrow {
+  display: inline-flex;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: rgba(0, 122, 255, 0.1);
+  color: var(--primary-color);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.auth-panel-title {
+  margin-top: 16px;
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  color: var(--text-primary);
+}
+
+.auth-panel-description {
+  margin-top: 10px;
+  font-size: 14px;
+  line-height: 1.7;
+  color: var(--text-secondary);
+}
+
+.auth-panel-hint {
+  margin-top: 14px;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--text-secondary);
+}
+
+.app-sider {
+  background: var(--sider-bg) !important;
+  backdrop-filter: var(--glass-backdrop);
+  -webkit-backdrop-filter: var(--glass-backdrop);
+  border-right: 1px solid var(--border-color);
+  padding: 12px 0;
+}
+
+.app-brand {
+  padding: 12px 20px 20px;
+}
+
+.app-brand-title {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: -0.01em;
+}
+
+.app-brand-subtitle {
+  margin-top: 4px;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--text-secondary);
+}
+
+.app-menu {
+  background: transparent !important;
+  padding: 0 8px;
+}
+
+.app-menu .arco-menu-item {
+  border-radius: 10px;
+  margin-bottom: 2px;
+  font-weight: 500;
+  color: var(--text-primary) !important;
+  transition: all 0.2s ease;
+  height: 36px;
+  line-height: 36px;
+}
+
+.app-menu .arco-menu-selected {
+  background-color: var(--primary-color) !important;
+  color: #fff !important;
+}
+
+.app-content {
+  padding: 24px 32px; /* Reduced padding */
+  background: transparent !important;
+}
+
+.page-main-container {
+  min-height: calc(100vh - 144px);
+}
+
+.page-header {
+  margin-bottom: 24px;
+}
+
+.page-title {
+  font-size: 26px;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: -0.02em;
+}
+
+.page-description {
+  margin-top: 6px;
+  color: var(--text-secondary);
+  font-size: 14px;
+}
+
+.header-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.auth-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 32px;
+  padding: 0 12px;
+  border: 1px solid rgba(0, 122, 255, 0.12) !important;
+  border-radius: 999px !important;
+  background: rgba(255, 255, 255, 0.76) !important;
+  color: var(--text-primary) !important;
+  box-shadow: 0 6px 18px rgba(15, 23, 42, 0.08);
+}
+
+.auth-pill-label {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.auth-pill-value {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--primary-color);
+}
+
+.auth-modal-note {
+  margin-bottom: 10px;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.auth-form-field {
+  margin-top: 14px;
+}
+
+.auth-form-label {
+  margin-bottom: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+/* Compact Glass Card */
+.glass-card {
+  background: rgba(255, 255, 255, 0.75);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  border-radius: var(--card-radius);
+  box-shadow: var(--soft-shadow);
+  transition: all 0.25s ease;
+  overflow: hidden;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.glass-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--hover-shadow);
+}
+
+.card-header {
+  padding: 16px 16px 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.card-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.card-content {
+  padding: 0 16px 16px;
+  flex: 1;
+}
+
+.card-footer {
+  padding: 10px 16px;
+  background: rgba(0, 0, 0, 0.015);
+  border-top: 1px solid rgba(0, 0, 0, 0.04);
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.inline-summary {
+  background: rgba(255, 255, 255, 0.6);
+  backdrop-filter: blur(5px);
+  padding: 8px 16px;
+  border-radius: 10px;
+  border: 1px solid var(--border-color);
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.page-toolbar {
+  margin-bottom: 24px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  background: rgba(255,255,255,0.45);
+  padding: 14px 18px;
+  border-radius: 16px;
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255,255,255,0.3);
+}
+
+.page-toolbar-summary {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.page-toolbar-count {
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  background: rgba(0, 122, 255, 0.08);
+  color: var(--primary-color);
+}
+
+.card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 16px;
+}
+
+.loading-card {
+  min-height: 168px;
+  padding: 16px;
+  justify-content: center;
+  gap: 10px;
+}
+
+.loading-line {
+  height: 12px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, rgba(0,0,0,0.05), rgba(255,255,255,0.75), rgba(0,0,0,0.05));
+  background-size: 200% 100%;
+  animation: loading-shimmer 1.4s ease-in-out infinite;
+}
+
+.loading-line-title {
+  width: 58%;
+  height: 18px;
+}
+
+.loading-line-tag {
+  width: 32%;
+}
+
+.loading-line-short {
+  width: 76%;
+}
+
+.empty-state {
+  padding: 48px 24px;
+  text-align: center;
+  border: 1px dashed rgba(0, 0, 0, 0.1);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.45);
+  backdrop-filter: blur(8px);
+}
+
+.empty-state-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.empty-state-description {
+  margin-top: 8px;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.empty-state-action {
+  margin-top: 16px;
+  border: none;
+  border-radius: 10px;
+  padding: 10px 16px;
+  background: var(--primary-color);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 8px 24px rgba(0, 122, 255, 0.18);
+}
+
+.card-action-row {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+
+.editor-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid var(--border-color);
+}
+
+.editor-status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #f59e0b;
+  box-shadow: 0 0 0 4px rgba(245, 158, 11, 0.14);
+}
+
+@keyframes loading-shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+.editor-frame {
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid var(--border-color);
+  box-shadow: var(--soft-shadow);
+}
+
+.arco-tag {
+  border-radius: 6px;
+  font-weight: 500;
+  padding: 0 8px;
+  font-size: 11px;
+}
+
+.arco-modal, .arco-drawer {
+  border-radius: 20px;
+}
+
+.arco-modal-header, .arco-drawer-header {
+  padding: 20px 24px 12px;
+}
+
+.arco-modal-body, .arco-drawer-body {
+  padding: 4px 24px 24px;
+}
+
+.arco-modal-footer, .arco-drawer-footer {
+  padding: 12px 24px 24px;
+}
+
+.arco-btn {
+  border-radius: 8px;
+  font-weight: 500;
+}
+
+.arco-tabs-nav-text {
+  font-size: 14px;
+}
+
+@media (max-width: 768px) {
+  .app-content {
+    padding: 18px 16px;
+  }
+
+  .page-toolbar {
+    align-items: flex-start;
+    flex-direction: column;
+    padding: 12px 14px;
+    gap: 12px;
+  }
+
+  .page-main-container {
+    min-height: auto;
+  }
+
+  /* Global responsive Modal/Drawer overrides */
+  .arco-modal {
+    width: 95% !important;
+    max-width: 100% !important;
+    margin: 0 auto;
+    border-radius: 16px;
+  }
+
+  .arco-drawer-wrapper .arco-drawer {
+    width: 100% !important;
+  }
+
+  .arco-modal-body, .arco-drawer-body {
+    padding: 12px 16px 20px;
+  }
+
+  .arco-modal-footer, .arco-drawer-footer {
+    padding: 12px 16px 16px;
+  }
+
+  .card-action-row button {
+    padding: 0 8px !important;
+  }
+
+  .card-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .page-title {
+    font-size: 22px;
+  }
+
+  .page-description {
+    font-size: 13px;
+  }
+}
+
+.mobile-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  background: var(--sider-bg);
+  backdrop-filter: var(--glass-backdrop);
+  -webkit-backdrop-filter: var(--glass-backdrop);
+  border-bottom: 1px solid var(--border-color);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  height: 48px;
+}
+
+.mobile-brand-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: -0.01em;
+}
+
+.mobile-menu-drawer .arco-drawer-body {
+  padding: 0;
+  background: var(--bg-gradient);
+}
+
+.mobile-menu-drawer .app-brand {
+  padding: 20px;
+  border-bottom: 1px solid var(--border-color);
+}
