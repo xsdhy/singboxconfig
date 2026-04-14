@@ -18,22 +18,25 @@ import (
 func TestInitializeAuthCreatesCredentials(t *testing.T) {
 	svc := newTestService(t)
 
-	result, err := svc.InitializeAuth("", "strong-password-123")
+	result, err := svc.InitializeAuth()
 	if err != nil {
 		t.Fatalf("InitializeAuth failed: %v", err)
 	}
 	if !result.Initialized {
 		t.Fatalf("InitializeAuth should initialize on empty storage")
 	}
-	if result.Username != defaultAuthUsername {
-		t.Fatalf("username = %q, want %q", result.Username, defaultAuthUsername)
+	if result.Username != "admin" {
+		t.Fatalf("username = %q, want %q", result.Username, "admin")
+	}
+	if result.Password != "admin" {
+		t.Fatalf("password = %q, want %q", result.Password, "admin")
 	}
 
 	hash, err := svc.storage.GetGlobalSetting(authPasswordHashSettingKey)
 	if err != nil {
 		t.Fatalf("GetGlobalSetting(password hash) failed: %v", err)
 	}
-	if err := bcrypt.CompareHashAndPassword([]byte(hash), []byte("strong-password-123")); err != nil {
+	if err := bcrypt.CompareHashAndPassword([]byte(hash), []byte("admin")); err != nil {
 		t.Fatalf("stored password hash does not match original password: %v", err)
 	}
 
@@ -52,7 +55,7 @@ func TestInitializeAuthRejectsCorruptPartialConfig(t *testing.T) {
 		t.Fatalf("SetGlobalSetting failed: %v", err)
 	}
 
-	_, err := svc.InitializeAuth("", "strong-password-123")
+	_, err := svc.InitializeAuth()
 	if !errors.Is(err, ErrAuthConfigCorrupt) {
 		t.Fatalf("InitializeAuth error = %v, want %v", err, ErrAuthConfigCorrupt)
 	}
@@ -61,7 +64,7 @@ func TestInitializeAuthRejectsCorruptPartialConfig(t *testing.T) {
 func TestResetPasswordInitializesMissingAuth(t *testing.T) {
 	svc := newTestService(t)
 
-	result, err := svc.ResetPassword("ops-admin", "strong-password-123")
+	result, err := svc.ResetPassword("", "strong-password-123")
 	if err != nil {
 		t.Fatalf("ResetPassword failed: %v", err)
 	}
@@ -73,8 +76,8 @@ func TestResetPasswordInitializesMissingAuth(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetGlobalSetting(username) failed: %v", err)
 	}
-	if username != "ops-admin" {
-		t.Fatalf("username = %q, want %q", username, "ops-admin")
+	if username != "admin" {
+		t.Fatalf("username = %q, want %q", username, "admin")
 	}
 }
 
@@ -119,7 +122,7 @@ func TestReservedSettingsAreBlockedAndFiltered(t *testing.T) {
 
 func TestGetAuthMeReturnsMetadata(t *testing.T) {
 	svc := newTestService(t)
-	if _, err := svc.InitializeAuth("admin", "strong-password-123"); err != nil {
+	if _, err := svc.InitializeAuth(); err != nil {
 		t.Fatalf("InitializeAuth failed: %v", err)
 	}
 
@@ -139,11 +142,11 @@ func TestGetAuthMeReturnsMetadata(t *testing.T) {
 
 func TestLoginWithPasswordIssuesBearerToken(t *testing.T) {
 	svc := newTestService(t)
-	if _, err := svc.InitializeAuth("admin", "strong-password-123"); err != nil {
+	if _, err := svc.InitializeAuth(); err != nil {
 		t.Fatalf("InitializeAuth failed: %v", err)
 	}
 
-	result, err := svc.LoginWithPassword("admin", "strong-password-123")
+	result, err := svc.LoginWithPassword("admin", "admin")
 	if err != nil {
 		t.Fatalf("LoginWithPassword failed: %v", err)
 	}
@@ -157,16 +160,16 @@ func TestLoginWithPasswordIssuesBearerToken(t *testing.T) {
 
 func TestChangeCredentialsRotatesSessionAndUpdatesUsername(t *testing.T) {
 	svc := newTestService(t)
-	if _, err := svc.InitializeAuth("admin", "strong-password-123"); err != nil {
+	if _, err := svc.InitializeAuth(); err != nil {
 		t.Fatalf("InitializeAuth failed: %v", err)
 	}
 
-	firstLogin, err := svc.LoginWithPassword("admin", "strong-password-123")
+	firstLogin, err := svc.LoginWithPassword("admin", "admin")
 	if err != nil {
 		t.Fatalf("LoginWithPassword failed: %v", err)
 	}
 
-	updated, err := svc.ChangeCredentials("strong-password-123", "ops-admin", "new-password-456")
+	updated, err := svc.ChangeCredentials("admin", "ops-admin", "new-password-456")
 	if err != nil {
 		t.Fatalf("ChangeCredentials failed: %v", err)
 	}

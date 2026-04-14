@@ -42,52 +42,30 @@
 
 - 当前入口固定用 PostgreSQL 驱动打开它
 
-### `DATA_FILE`
-
-用途：
-
-- 指定 JSON 文件存储路径
-
-默认值：
-
-- `data.json`
-
 ## 存储选择优先级
 
 启动时按下面顺序决定存储后端：
 
 1. `SUPABASE_URL` + `SUPABASE_KEY`
 2. `DATABASE_URL`
-3. `DATA_FILE` / 默认 `data.json`
+
+如果都未配置，服务将无法启动。
 
 ## 管理员初始化相关变量
 
-### `ADMIN_USERNAME`
+### 首次启动自动初始化
 
-用途：
+系统在首次启动时会自动检查数据库中是否存在 auth 配置：
 
-- 首次初始化管理员用户名
-- 在未初始化状态下执行密码重置时作为默认用户名来源
+- 如果不存在（首次启动），自动初始化默认管理员账户：
+  - 用户名: `admin`
+  - 密码: `admin`
+- 如果已存在，使用已保存的管理员配置
 
-默认值：
+**重要提示：**
 
-- `admin`
-
-说明：
-
-- 只在认证尚未初始化时使用
-- 已初始化后，普通启动不会覆盖现有管理员用户名
-
-### `ADMIN_PASSWORD`
-
-用途：
-
-- 首次初始化管理员密码
-
-说明：
-
-- 若未提供，服务会生成随机强密码并写入启动日志
-- 若提供，需满足最小密码长度要求
+- 首次启动后请立即登录管理台修改默认密码
+- 后续启动不会重置已保存的管理员配置
 
 ### `FORCE_RESET_PASSWORD`
 
@@ -167,22 +145,11 @@ Supabase 存储通过 PostgREST HTTP API 工作，实现在 [supabase.go](/Users
 
 ## 示例配置
 
-### 文件模式
-
-```bash
-PORT=7391
-DATA_FILE=./data.json
-ADMIN_USERNAME=admin
-ADMIN_PASSWORD=change-me-123
-```
-
 ### PostgreSQL 模式
 
 ```bash
 PORT=7391
 DATABASE_URL=postgres://user:pass@127.0.0.1:5432/singboxconfig?sslmode=disable
-ADMIN_USERNAME=admin
-ADMIN_PASSWORD=change-me-123
 ```
 
 ### Supabase 模式
@@ -191,8 +158,6 @@ ADMIN_PASSWORD=change-me-123
 PORT=7391
 SUPABASE_URL=https://xxx.supabase.co
 SUPABASE_KEY=your-service-role-key
-ADMIN_USERNAME=admin
-ADMIN_PASSWORD=change-me-123
 ```
 
 ## 相关文档

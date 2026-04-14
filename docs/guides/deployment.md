@@ -36,23 +36,11 @@ go build -o singboxconfig ./cmd/server
 
 ### 运行
 
-文件存储模式：
-
-```bash
-PORT=7391 \
-DATA_FILE=/data/singboxconfig/data.json \
-ADMIN_USERNAME=admin \
-ADMIN_PASSWORD='change-me-123' \
-./singboxconfig
-```
-
 PostgreSQL 模式：
 
 ```bash
 PORT=7391 \
 DATABASE_URL='postgres://user:pass@db:5432/singboxconfig?sslmode=disable' \
-ADMIN_USERNAME=admin \
-ADMIN_PASSWORD='change-me-123' \
 ./singboxconfig
 ```
 
@@ -61,8 +49,6 @@ Supabase 模式：
 ```bash
 SUPABASE_URL='https://xxx.supabase.co' \
 SUPABASE_KEY='service_role_key' \
-ADMIN_USERNAME=admin \
-ADMIN_PASSWORD='change-me-123' \
 ./singboxconfig
 ```
 
@@ -76,20 +62,6 @@ docker build -t singboxconfig:latest .
 
 ### 运行容器
 
-文件存储模式：
-
-```bash
-docker run -d \
-  --name singboxconfig \
-  -p 7391:7391 \
-  -e PORT=7391 \
-  -e DATA_FILE=/app/data.json \
-  -e ADMIN_USERNAME=admin \
-  -e ADMIN_PASSWORD='change-me-123' \
-  -v $(pwd)/data.json:/app/data.json \
-  singboxconfig:latest
-```
-
 PostgreSQL 模式：
 
 ```bash
@@ -98,8 +70,6 @@ docker run -d \
   -p 7391:7391 \
   -e PORT=7391 \
   -e DATABASE_URL='postgres://user:pass@db:5432/singboxconfig?sslmode=disable' \
-  -e ADMIN_USERNAME=admin \
-  -e ADMIN_PASSWORD='change-me-123' \
   singboxconfig:latest
 ```
 
@@ -125,11 +95,12 @@ docker run -d \
 
 ## 生产环境注意事项
 
-### 1. 管理员账户在首次启动时初始化
+### 1. 管理员账户在首次启动时自动初始化
 
-- 首次启动优先读取 `ADMIN_USERNAME` / `ADMIN_PASSWORD`
-- 如果未提供 `ADMIN_PASSWORD`，服务会生成随机强密码并写入日志
+- 首次启动时，系统会自动检查数据库中是否存在管理员配置
+- 如果不存在（首次启动），会自动初始化默认管理员账户：用户名 `admin`，密码 `admin`
 - 后续启动会复用已初始化的认证配置，不会重复生成
+- **重要：首次启动后请立即登录管理台修改默认密码**
 
 ### 2. 管理端认证改为 Bearer Token
 

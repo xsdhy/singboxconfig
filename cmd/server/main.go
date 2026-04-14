@@ -55,12 +55,10 @@ func main() {
 	// 创建服务实例
 	svc := service.NewService(store)
 
-	adminUsername := os.Getenv("ADMIN_USERNAME")
-	adminPassword := os.Getenv("ADMIN_PASSWORD")
 	forceResetPassword := os.Getenv("FORCE_RESET_PASSWORD")
 
 	if *resetPassword != "" {
-		result, err := svc.ResetPassword(adminUsername, *resetPassword)
+		result, err := svc.ResetPassword("", *resetPassword)
 		if err != nil {
 			log.Fatalf("Failed to reset admin password: %v", err)
 		}
@@ -69,14 +67,14 @@ func main() {
 	}
 
 	if forceResetPassword != "" {
-		result, err := svc.ResetPassword(adminUsername, forceResetPassword)
+		result, err := svc.ResetPassword("", forceResetPassword)
 		if err != nil {
 			log.Fatalf("Failed to force reset admin password: %v", err)
 		}
 		log.Printf("FORCE_RESET_PASSWORD applied for user %q", result.Username)
 		log.Printf("Remember to remove FORCE_RESET_PASSWORD from deployment configuration after use")
 	} else {
-		result, err := svc.InitializeAuth(adminUsername, adminPassword)
+		result, err := svc.InitializeAuth()
 		if err != nil {
 			log.Fatalf("Failed to initialize admin auth: %v", err)
 		}
@@ -85,9 +83,7 @@ func main() {
 			log.Println("首次启动，已初始化管理员账户")
 			log.Printf("用户名: %s", result.Username)
 			log.Printf("密码: %s", result.Password)
-			if result.GeneratedPassword {
-				log.Println("请妥善保存并尽快修改密码")
-			}
+			log.Println("请登录后尽快修改密码")
 			log.Println("========================================")
 		}
 	}

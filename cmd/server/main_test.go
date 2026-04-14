@@ -61,7 +61,7 @@ func TestSetupRouterRegistersDeviceManagementRoutes(t *testing.T) {
 
 func TestSetupRouterUsesStorageBackedBearerAuth(t *testing.T) {
 	svc, router := newAuthenticatedRouter(t)
-	if _, err := svc.InitializeAuth("admin", "old-password-123"); err != nil {
+	if _, err := svc.InitializeAuth(); err != nil {
 		t.Fatalf("InitializeAuth failed: %v", err)
 	}
 
@@ -72,7 +72,7 @@ func TestSetupRouterUsesStorageBackedBearerAuth(t *testing.T) {
 		t.Fatalf("unauthenticated status = %d, want %d", recorder.Code, http.StatusUnauthorized)
 	}
 
-	loginBody := bytes.NewBufferString(`{"username":"admin","password":"old-password-123"}`)
+	loginBody := bytes.NewBufferString(`{"username":"admin","password":"admin"}`)
 	req = httptest.NewRequest(http.MethodPost, "/api/auth/login", loginBody)
 	req.Header.Set("Content-Type", "application/json")
 	recorder = httptest.NewRecorder()
@@ -101,7 +101,7 @@ func TestSetupRouterUsesStorageBackedBearerAuth(t *testing.T) {
 		t.Fatalf("GET /api/auth/me body = %s", recorder.Body.String())
 	}
 
-	body := bytes.NewBufferString(`{"old_password":"old-password-123","new_username":"ops-admin","new_password":"new-password-456"}`)
+	body := bytes.NewBufferString(`{"old_password":"admin","new_username":"ops-admin","new_password":"new-password-456"}`)
 	req = httptest.NewRequest(http.MethodPost, "/api/auth/change-credentials", body)
 	req.Header.Set("Authorization", "Bearer "+token)
 	req.Header.Set("Content-Type", "application/json")

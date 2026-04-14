@@ -30,14 +30,7 @@ go run ./cmd/server
 默认行为：
 
 - 端口默认 `7391`
-- 如果未配置 `SUPABASE_URL` / `SUPABASE_KEY` / `DATABASE_URL`，会退回到本地 JSON 文件存储
-- JSON 文件路径默认是当前目录下的 `data.json`
-
-文件模式：
-
-```bash
-DATA_FILE=./data.json go run ./cmd/server
-```
+- 必须配置 `SUPABASE_URL` / `SUPABASE_KEY` 或 `DATABASE_URL`，否则服务无法启动
 
 PostgreSQL：
 
@@ -69,9 +62,10 @@ npm run dev
 
 首次启动时：
 
-- 如果设置了 `ADMIN_USERNAME` / `ADMIN_PASSWORD`，服务会用它们初始化管理员账户
-- 如果没有设置 `ADMIN_PASSWORD`，服务会自动生成随机强密码并写入日志
-- 随机生成的密码只在首次初始化成功后输出
+- 系统会自动检查数据库中是否存在管理员配置
+- 如果不存在（首次启动），会自动初始化默认管理员账户
+- 默认用户名: `admin`
+- 默认密码: `admin`
 
 示例日志：
 
@@ -79,10 +73,12 @@ npm run dev
 ========================================
 首次启动，已初始化管理员账户
 用户名: admin
-密码: aB3$xY9@kL2#mN5!
-请妥善保存并尽快修改密码
+密码: admin
+请登录后尽快修改密码
 ========================================
 ```
+
+**重要提示：首次启动后请立即登录管理台修改默认密码**
 
 ## 4. 登录管理台
 
@@ -178,6 +174,13 @@ FORCE_RESET_PASSWORD='new-password-123' go run ./cmd/server
 
 - `DATABASE_URL` 必须是 PostgreSQL 可用连接串
 - 虽然依赖里包含 MySQL 驱动，但 `cmd/server/main.go` 当前没有根据环境变量切换到这些驱动
+
+### 服务启动失败提示 "No storage backend configured"
+
+检查：
+
+- 是否配置了 `DATABASE_URL` 或 `SUPABASE_URL` + `SUPABASE_KEY`
+- 必须配置其中之一，否则服务无法启动
 
 ## 相关文档
 

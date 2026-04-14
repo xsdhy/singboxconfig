@@ -442,7 +442,7 @@ func validateAuthToken(token string, config *AuthConfig, now time.Time) (*authTo
 	return &claims, nil
 }
 
-func (s *Service) InitializeAuth(adminUsername, adminPassword string) (*AuthInitResult, error) {
+func (s *Service) InitializeAuth() (*AuthInitResult, error) {
 	config, err := s.getAuthConfig(true)
 	if err == nil {
 		return &AuthInitResult{
@@ -455,20 +455,9 @@ func (s *Service) InitializeAuth(adminUsername, adminPassword string) (*AuthInit
 		return nil, err
 	}
 
-	username := normalizeAuthUsername(adminUsername)
-	password := adminPassword
-	generatedPassword := false
-
-	if password == "" {
-		password, err = generateRandomPassword(18)
-		if err != nil {
-			return nil, err
-		}
-		generatedPassword = true
-	}
-	if err := validateAdminPassword(password); err != nil {
-		return nil, err
-	}
+	// 首次启动，使用默认的 admin/admin
+	username := "admin"
+	password := "admin"
 
 	passwordHash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {
@@ -499,12 +488,12 @@ func (s *Service) InitializeAuth(adminUsername, adminPassword string) (*AuthInit
 		Initialized:       true,
 		Username:          username,
 		Password:          password,
-		GeneratedPassword: generatedPassword,
+		GeneratedPassword: false,
 		InitializedAt:     initializedAt,
 	}, nil
 }
 
-func (s *Service) ResetPassword(adminUsername, newPassword string) (*AuthResetResult, error) {
+func (s *Service) ResetPassword(_, newPassword string) (*AuthResetResult, error) {
 	if err := validateAdminPassword(newPassword); err != nil {
 		return nil, err
 	}
@@ -526,7 +515,7 @@ func (s *Service) ResetPassword(adminUsername, newPassword string) (*AuthResetRe
 			return nil, secretErr
 		}
 		config = &AuthConfig{
-			Username:       normalizeAuthUsername(adminUsername),
+			Username:       "admin",
 			InitializedAt:  now,
 			TokenSecret:    tokenSecret,
 			SessionVersion: sessionVersion,
@@ -549,9 +538,6 @@ func (s *Service) ResetPassword(adminUsername, newPassword string) (*AuthResetRe
 	config.PasswordChangedAt = &now
 	if config.InitializedAt.IsZero() {
 		config.InitializedAt = now
-	}
-	if initialized {
-		config.Username = normalizeAuthUsername(adminUsername)
 	}
 
 	if err := s.saveAuthConfig(config); err != nil {
