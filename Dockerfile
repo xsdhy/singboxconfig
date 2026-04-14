@@ -8,8 +8,8 @@ WORKDIR /build/web
 # 复制前端依赖文件
 COPY web/package*.json ./
 
-# 安装依赖
-RUN npm ci --only=production
+# 安装依赖（包括 devDependencies，构建时需要）
+RUN npm ci
 
 # 复制前端源码
 COPY web/ ./
@@ -21,7 +21,10 @@ RUN npm run build
 # ============================================
 # 阶段 2: 后端构建 (Go)
 # ============================================
-FROM golang:1.25.0-alpine AS backend-builder
+FROM golang:1.25-alpine AS backend-builder
+
+# 安装构建依赖
+RUN apk add --no-cache git
 
 WORKDIR /build
 
@@ -37,8 +40,9 @@ COPY . .
 # 从前端构建阶段复制构建产物
 COPY --from=frontend-builder /build/cmd/server/index.html ./cmd/server/index.html
 
-# 构建后端 (嵌入前端 HTML)
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
+# 构建后端 (使用 TARGETARCH 自动适配多架构)
+ARG TARGETARCH
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=${TARGETARCH} \
     go build -ldflags="-s -w" -trimpath \
     -o singboxconfig ./cmd/server
 
