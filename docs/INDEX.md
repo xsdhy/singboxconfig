@@ -11,7 +11,7 @@ SingBox Config 是一个基于 Go 语言的 **sing-box 代理配置管理系统*
 项目采用前后端分离架构，前端构建产物嵌入 Go 二进制中一体化部署：
 - **后端服务**: Go + Gin + GORM，支持多种存储后端（PostgreSQL / MySQL / Supabase / JSON 文件）
 - **前端应用**: React 18 + TypeScript + Vite + Arco Design，提供完整的管理界面
-- **协议解析**: 内置 SS、SSR、Trojan、VMess 订阅协议解码器
+- **协议解析**: 内置 SS、SSR、Trojan、VMess、VLESS 订阅协议解码器
 
 ## 文档目录
 
@@ -143,7 +143,7 @@ docs/
 
 ## 核心功能
 
-- **订阅管理**: 添加多个代理订阅源，自动解析 SS/SSR/Trojan/VMess 节点
+- **订阅管理**: 添加多个代理订阅源，自动解析 SS/SSR/Trojan/VMess/VLESS 节点
 - **节点分组**: 通过关键字过滤动态组织节点，支持 selector 手动选择和 urltest 自动测速
 - **规则集管理**: 管理路由规则集，支持本地和远程规则源，控制流量分流策略
 - **设备管理**: 为不同设备定制配置，通过 Token 认证获取专属 sing-box 配置

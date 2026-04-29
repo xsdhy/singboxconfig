@@ -21,6 +21,7 @@ var subscriptionOutboundConvertMap = map[string]func(string) (*entity.SingBoxOut
 	"ss":     protocol.DecodeSSURLToSingBox,
 	"trojan": protocol.DecodeTrojanUrlToSingBox,
 	"vmess":  protocol.DecodeVmessUrlToSingBox,
+	"vless":  protocol.DecodeVlessUrlToSingBox,
 }
 
 // subscriptionRefreshResult 记录一次手动刷新前后的差异，供 API 直接返回。

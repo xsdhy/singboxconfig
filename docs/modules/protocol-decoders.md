@@ -6,18 +6,19 @@
 
 代码入口：
 
-- 订阅调度：`convert/singbox/outbound.go`
-- 协议实现：`protocol/ss.go`、`protocol/ssr.go`、`protocol/trojan.go`、`protocol/vmess.go`
+- 订阅调度：`service/outbound_cache.go`（`subscriptionOutboundConvertMap`）
+- 协议实现：`protocol/ss.go`、`protocol/ssr.go`、`protocol/trojan.go`、`protocol/vmess.go`、`protocol/vless.go`
 
 ## 总体架构
 
-生成链路不会直接解析所有节点，而是先读取 URL scheme，再根据 `convertMap` 分发：
+生成链路不会直接解析所有节点，而是先读取 URL scheme，再根据 `subscriptionOutboundConvertMap` 分发：
 
 - `ss` -> `DecodeSSURLToSingBox`
 - `trojan` -> `DecodeTrojanUrlToSingBox`
 - `vmess` -> `DecodeVmessUrlToSingBox`
+- `vless` -> `DecodeVlessUrlToSingBox`
 
-`ssr` 虽然已有实现 `DecodeSSRURLToSingBox`，但当前未注册进 `convertMap`，因此不会在实际生成中生效。
+`ssr` 虽然已有实现 `DecodeSSRURLToSingBox`，但当前未注册进 `subscriptionOutboundConvertMap`，因此不会在实际生成中生效。
 
 统一流程：
 
@@ -138,6 +139,35 @@
 
 上层 `GetOutbounds()` 不会因为单个节点失败而中断整个订阅解析。
 
+## VLESS
+
+实现文件：`protocol/vless.go`
+
+支持行为：
+
+- 解析标准 URL 结构：`vless://<uuid>@<host>:<port>?<params>#<tag>`
+- UUID 位于 URL userinfo 部分（@ 符号前）
+- 支持三种安全层：`reality`、`tls`、`none`（或空）
+- Reality 安全层：解析公钥（`pbk`）、ShortID（`sid`）、uTLS 指纹（`fp`）
+- TLS 安全层：解析 SNI（`sni` 优先，其次 `servername`）、uTLS 指纹（`fp`）
+- 支持传输协议：`tcp`（无需额外配置）、`ws`、`grpc`、`httpupgrade`
+- 使用 URL fragment 作为节点标签，经 `cleanTag` 清洗后输出
+
+转换结果主要字段：
+
+- `type: "vless"`
+- `server` / `server_port`
+- `uuid`
+- `flow`（xtls-rprx-vision 等）
+- `tls`（含 `reality` 和 `utls` 子配置）
+- `transport`（ws / grpc / httpupgrade 时生成）
+
+注意事项：
+
+- VLESS URL 中的 `mode=multi` 参数为 Xray 特有，与 sing-box 多路复用无关，解析时忽略
+- `spx`（Spider X path）为 Reality 服务端参数，客户端出站配置无需设置，解析时忽略
+- SNI 优先读取 `sni` 参数，其次读取 `servername` 参数（两者语义相同）
+
 ## 扩展新协议的方法
 
 如果要新增一个订阅协议，通常需要四步：
@@ -145,9 +175,9 @@
 1. 在 `protocol/` 新增解析结构和 `DecodeXxxURL`
 2. 实现 `ConvertXxxToSingBox`
 3. 提供 `DecodeXxxURLToSingBox`
-4. 在 `convert/singbox/outbound.go` 的 `convertMap` 里注册 scheme
+4. 在 `service/outbound_cache.go` 的 `subscriptionOutboundConvertMap` 里注册 scheme
 
-如果只完成前 1-3 步而没有注册到 `convertMap`，协议实现不会进入实际生成链路。
+如果只完成前 1-3 步而没有注册到 `subscriptionOutboundConvertMap`，协议实现不会进入实际生成链路。
 
 ## 当前限制
 
