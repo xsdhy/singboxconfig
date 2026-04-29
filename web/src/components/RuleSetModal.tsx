@@ -56,6 +56,8 @@ export default function RuleSetModal({ visible, title, initialValues, nodeGroups
         Message.error('JSON 格式不正确');
         return;
       }
+    } else {
+      values.content = '';
     }
 
     onOk(values);
