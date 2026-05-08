@@ -185,7 +185,15 @@ func parseSubscriptionOutbounds(httpContent []byte) ([]entity.SingBoxOut, error)
 	outbounds := make([]entity.SingBoxOut, 0, len(lines))
 	for _, line := range lines {
 		line = strings.TrimSpace(line)
-		if line == "" || !strings.Contains(line, "://") {
+		if line == "" {
+			continue
+		}
+		// 跳过状态信息行（如 STATUS=...）
+		if strings.HasPrefix(line, "STATUS=") || strings.HasPrefix(line, "status=") {
+			continue
+		}
+		// 必须包含 :// 才可能是节点链接
+		if !strings.Contains(line, "://") {
 			continue
 		}
 		protocolName := strings.SplitN(line, "://", 2)[0]
@@ -204,8 +212,12 @@ func parseSubscriptionOutbounds(httpContent []byte) ([]entity.SingBoxOut, error)
 }
 
 func (s *Service) httpGetBytes(ctx context.Context, url string, userAgent string) ([]byte, error) {
-	client := &http.Client{Timeout: 30 * time.Second}
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	// 创建独立的超时 context，避免受上层 HTTP 请求取消影响
+	fetchCtx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+
+	client := &http.Client{Timeout: 60 * time.Second}
+	req, err := http.NewRequestWithContext(fetchCtx, http.MethodGet, url, nil)
 	if err != nil {
 		return nil, fmt.Errorf("httpGetBytes: failed to create request: %w", err)
 	}
@@ -227,6 +239,7 @@ func (s *Service) httpGetBytes(ctx context.Context, url string, userAgent string
 	if err != nil {
 		return nil, fmt.Errorf("httpGetBytes: failed to read response body: %w", err)
 	}
+	fmt.Printf("httpGetBytes: fetched %d bytes from %s\n", len(body), url)
 	return body, nil
 }
 
