@@ -113,8 +113,15 @@ func (s *Service) resolveGenerateOutbounds(ctx context.Context, deviceCode strin
 	if err != nil {
 		return nil, err
 	}
+
+	// 收集禁用或对当前设备不可见的订阅名称，用于后续过滤其缓存 Outbound。
+	disabledSubscribes := make(map[string]bool, len(subscribes))
 	for _, subscribe := range subscribes {
-		if subscribe == nil || !subscribe.Status || !isDeviceVisible(deviceCode, subscribe.VisibleDevices) {
+		if subscribe == nil {
+			continue
+		}
+		if !subscribe.Status || !isDeviceVisible(deviceCode, subscribe.VisibleDevices) {
+			disabledSubscribes[subscribe.Name] = true
 			continue
 		}
 		if needsRefresh(subscribe) {
@@ -128,6 +135,19 @@ func (s *Service) resolveGenerateOutbounds(ctx context.Context, deviceCode strin
 	if err != nil {
 		return nil, err
 	}
+
+	// 过滤掉属于禁用/不可见订阅的缓存 Outbound。
+	if len(disabledSubscribes) > 0 {
+		filtered := make([]*entity.Outbound, 0, len(items))
+		for _, item := range items {
+			if item != nil && item.Source == entity.OutboundSourceSubscription && disabledSubscribes[item.SubscribeName] {
+				continue
+			}
+			filtered = append(filtered, item)
+		}
+		items = filtered
+	}
+
 	// 兼容历史默认行为：当存储中完全没有任何 Outbound 时，仍保留默认手工节点兜底。
 	if len(items) == 0 {
 		items = singbox.GetDefaultExtraOutbounds()

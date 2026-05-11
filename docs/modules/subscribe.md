@@ -11,7 +11,7 @@
 
 - 实体定义：`entity/subscribe.go`
 - 服务接口：`service/service.go`
-- 生成转换：`convert/singbox/outbound.go`
+- 缓存刷新与生成过滤：`service/outbound_cache.go`
 - 协议解析：`protocol/*.go`
 
 ## 数据模型
@@ -23,7 +23,13 @@
 - `userAgent`：可选请求头，留空时回退到默认桌面浏览器 UA
 - `status`：是否启用；只有启用的订阅才会参与生成
 
-这个模型本身不存储节点明细。项目采用“生成时实时拉取并解析”的方式，节点不会持久化到存储层。
+- `visibleDevices`：逗号分隔的设备编码，控制哪些设备可使用当前订阅的节点
+- `outboundCacheDuration`：Outbound 缓存时长（分钟），0 表示不缓存
+- `outboundLastFetchTime`：最近一次成功刷新缓存的时间
+- `outboundLastFetchStatus`：最近一次刷新状态（SUCCESS / FAILED）
+- `outboundLastFetchError`：最近一次刷新失败原因
+
+订阅通过缓存机制将解析后的节点持久化到统一 Outbound 表中，避免每次生成配置都重新拉取。
 
 ## 管理接口
 
@@ -38,19 +44,20 @@
 
 ## 配置生成中的处理流程
 
-生成接口 `/open/generate/:device?token=...` 会调用 `convert/singbox.GetOutbounds()`，订阅处理流程如下：
+生成接口 `/open/generate/:device?token=...` 会调用 `resolveGenerateOutbounds()`，订阅处理流程如下：
 
 1. 读取全部订阅
-2. 跳过 `status=false` 的订阅
-3. 对每个订阅发起 HTTP GET
-4. 若订阅响应可整体 Base64 解码，则先解码；否则按原文处理
-5. 按换行拆分每个节点 URL
-6. 根据 `scheme://` 识别协议并交给对应解码器
-7. 把成功解析的节点追加到最终 `outbounds`
+2. 收集禁用（`status=false`）或对当前设备不可见的订阅名称集合
+3. 对启用且可见的订阅，判断缓存是否过期，过期则刷新
+4. 从统一 Outbound 表读取当前设备可见且启用的记录
+5. 过滤掉属于禁用/不可见订阅的 `SUBSCRIPTION` 来源 Outbound
+6. 将最终 Outbound 列表交给节点分组构造
 
-失败行为是“单订阅降级、继续整体生成”：
+**订阅禁用的完整效果**：当某个订阅被禁用后，不仅不会触发刷新，其已缓存的 Outbound 也会在生成时被过滤掉，不会出现在最终配置中。
 
-- 拉取失败：记录日志，跳过该订阅
+失败行为是”单订阅降级、继续整体生成”：
+
+- 拉取失败：记录日志，保留旧缓存供生成继续使用
 - 内容解析失败：记录日志，跳过该订阅
 - 单个节点不支持或解码失败：跳过该节点
 
@@ -58,9 +65,10 @@
 
 ## 请求行为
 
-HTTP 拉取逻辑位于 `convert/singbox/outbound.go`：
+HTTP 拉取逻辑位于 `service/outbound_cache.go`：
 
-- 超时时间：30 秒
+- 超时时间：60 秒
+- 使用独立的超时 context，避免受上层 HTTP 请求取消影响
 - 默认 UA：桌面 Chrome UA
 - 非 200 状态码视为失败
 
@@ -76,16 +84,14 @@ HTTP 拉取逻辑位于 `convert/singbox/outbound.go`：
 
 代码现状需要明确区分“解码器存在”和“生成链路已接通”：
 
-- 已接入生成链路：`ss`、`trojan`、`vmess`
+- 已接入生成链路：`ss`、`trojan`、`vmess`、`vless`
 - 已实现解码器但当前未接入生成链路：`ssr`
 
 也就是说，`protocol/ssr.go` 可以单独解析 SSR URL，但 `convertMap` 当前注释掉了 `ssr`，因此 SSR 节点不会出现在生成结果中。
 
 另外还有几个实现边界：
 
-- 不做订阅结果缓存，每次生成都会重新拉取
 - 不做重复节点去重，多个订阅可产生同名标签
-- 不做订阅健康检查或最后拉取状态持久化
 - 不支持订阅级代理、重试策略、ETag/If-None-Match 等优化
 
 ## 适合更新本文档的场景

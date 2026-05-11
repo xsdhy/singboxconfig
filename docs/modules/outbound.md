@@ -71,7 +71,14 @@ Outbound 模块统一管理最终会进入 sing-box `outbounds` 的出站记录�
 
 ## 生成逻辑
 
-设备配置生成时，`resolveGenerateOutbounds()` 会先按订阅的缓存状态决定是否刷新，再从统一 Outbound 表中读取当前设备可见且启用的记录。
+设备配置生成时，`resolveGenerateOutbounds()` 按以下步骤处理：
+
+1. 读取全部订阅，收集禁用（`Status=false`）或对当前设备不可见的订阅名称集合
+2. 对启用且可见的订阅，按缓存状态决定是否刷新
+3. 从统一 Outbound 表中读取当前设备可见且启用的记录
+4. 过滤掉属于禁用/不可见订阅的 `SUBSCRIPTION` 来源 Outbound
+
+这确保了禁用某个订阅后，其已缓存的节点不会出现在生成的配置中。手动维护的 `MANUAL` 来源 Outbound 不受订阅状态影响。
 
 后续处理分两步：
 

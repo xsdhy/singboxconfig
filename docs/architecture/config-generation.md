@@ -115,14 +115,19 @@ GET /open/generate/:device?token=...
 
 当前生成链路统一通过 `resolveGenerateOutbounds(ctx, deviceCode)` 处理 Outbound，不再区分“额外出站”和“订阅节点拉取”两条独立主线。
 
-### 5.1 订阅筛选
+### 5.1 订阅筛选与禁用收集
 
-系统会先读取全部 `Subscribe`，再按以下条件筛选：
+系统会先读取全部 `Subscribe`，按以下条件分为两组：
 
+**禁用/不可见组**（收集到 `disabledSubscribes` 集合）：
+- `Subscribe.Status == false`
+- 订阅 `VisibleDevices` 对当前设备不可见
+
+**活跃组**（参与后续刷新）：
 - `Subscribe.Status == true`
 - 订阅 `VisibleDevices` 对当前设备可见
 
-不满足条件的订阅不会参与本次刷新和生成。
+禁用/不可见组的订阅名称会被记录下来，用于在步骤 5.5 中过滤其已缓存的 Outbound。
 
 ### 5.2 缓存过期判断
 
@@ -184,7 +189,15 @@ GET /open/generate/:device?token=...
 - `VisibleDevices` 为空表示全部设备可见
 - `VisibleDevices` 非空时，仅当前设备精确命中才可见
 
-当存储中完全没有任何 Outbound 时，仍会回退到 `GetDefaultExtraOutbounds()`，用于兼容历史默认行为。
+### 5.6 过滤禁用订阅的缓存 Outbound
+
+从 Outbound 表读取结果后，系统会根据步骤 5.1 中收集的 `disabledSubscribes` 集合，过滤掉属于禁用/不可见订阅的 `SUBSCRIPTION` 来源 Outbound：
+
+- 仅针对 `Source=SUBSCRIPTION` 的记录进行检查
+- `MANUAL` 来源的 Outbound 不受订阅状态影响
+- 这确保了禁用某个订阅后，其已缓存的节点不会出现在最终生成的配置中
+
+当过滤后存储中完全没有任何 Outbound 时，仍会回退到 `GetDefaultExtraOutbounds()`，用于兼容历史默认行为。
 
 ## 6. 构造节点分组出站
 
