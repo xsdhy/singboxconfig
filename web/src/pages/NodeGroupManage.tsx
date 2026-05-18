@@ -13,6 +13,7 @@ export default function NodeGroupManage() {
   const [refreshing, setRefreshing] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [deletingKey, setDeletingKey] = useState<string | null>(null);
+  const [togglingKey, setTogglingKey] = useState<string | null>(null);
   const [ngVisible, setNgVisible] = useState(false);
   const [ngTitle, setNgTitle] = useState('添加节点分组');
   const [ngForm, setNgForm] = useState<Partial<NodeGroup>>({});
@@ -65,6 +66,19 @@ export default function NodeGroupManage() {
     finally { setDeletingKey(null); }
   };
 
+  const handleToggleGroupType = async (record: NodeGroup, newType: string) => {
+    try {
+      setTogglingKey(record.tag);
+      await api.updateNodeGroup(record.tag, { ...record, groupType: newType });
+      Message.success(`已切换为 ${newType}`);
+      await loadData();
+    } catch {
+      Message.error('切换分组类型失败');
+    } finally {
+      setTogglingKey(null);
+    }
+  };
+
   return (
     <>
       <PageToolbar
@@ -89,8 +103,10 @@ export default function NodeGroupManage() {
           <NodeGroupTable
             data={nodeGroups}
             deletingKey={deletingKey}
+            togglingKey={togglingKey}
             onEdit={handleEditNg}
             onDelete={handleDeleteNg}
+            onToggleGroupType={handleToggleGroupType}
           />
         </DataState>
       </div>

@@ -64,7 +64,7 @@ func (ds *DatabaseStorage) GetSubscribe(name string) (*entity.Subscribe, error) 
 
 func (ds *DatabaseStorage) ListSubscribes() ([]*entity.Subscribe, error) {
 	var dbSubscribes []DBSubscribe
-	if err := ds.db.Find(&dbSubscribes).Error; err != nil {
+	if err := ds.db.Order("created_at ASC").Find(&dbSubscribes).Error; err != nil {
 		return nil, err
 	}
 

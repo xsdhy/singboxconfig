@@ -1,4 +1,4 @@
-import { Button, Grid, Typography, Tag, Space } from '@arco-design/web-react';
+import { Button, Grid, Typography, Tag, Space, Select } from '@arco-design/web-react';
 import type { NodeGroup } from '../types';
 
 const { Row, Col } = Grid;
@@ -7,11 +7,13 @@ const { Title, Text } = Typography;
 interface Props {
   data: NodeGroup[];
   deletingKey?: string | null;
+  togglingKey?: string | null;
   onEdit: (record: NodeGroup) => void;
   onDelete: (record: NodeGroup) => void;
+  onToggleGroupType: (record: NodeGroup, newType: string) => void;
 }
 
-export default function NodeGroupTable({ data, deletingKey, onEdit, onDelete }: Props) {
+export default function NodeGroupTable({ data, deletingKey, togglingKey, onEdit, onDelete, onToggleGroupType }: Props) {
   return (
     <div style={{ marginBottom: 20 }}>
       <Row gutter={[16, 16]}>
@@ -21,10 +23,20 @@ export default function NodeGroupTable({ data, deletingKey, onEdit, onDelete }: 
               <div className="card-header" style={{ padding: '12px 16px 8px' }}>
                 <div style={{ flex: 1 }}>
                   <Title heading={6} style={{ margin: 0, fontSize: 15 }}>{item.name}</Title>
-                  <Space style={{ marginTop: 4 }}>
-                    <Tag size="small" color="arcoblue" style={{ scale: '0.85', transformOrigin: 'left center' }}>{item.groupType}</Tag>
-                    <Tag size="small" style={{ scale: '0.85', transformOrigin: 'left center' }}>{item.tag}</Tag>
-                  </Space>
+                  <div style={{ marginTop: 6, display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <Text type="secondary" style={{ fontSize: 11 }}>分组类型</Text>
+                    <Select
+                      size="small"
+                      value={item.groupType}
+                      loading={togglingKey === item.tag}
+                      onChange={(value) => onToggleGroupType(item, value)}
+                      style={{ width: 100 }}
+                    >
+                      <Select.Option value="selector">selector</Select.Option>
+                      <Select.Option value="urltest">urltest</Select.Option>
+                    </Select>
+                    <Tag size="small" style={{ scale: '0.85' }}>{item.tag}</Tag>
+                  </div>
                 </div>
               </div>
               <div className="card-content" style={{ padding: '0 16px 12px' }}>

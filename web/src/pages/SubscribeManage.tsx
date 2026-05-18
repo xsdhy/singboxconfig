@@ -49,6 +49,7 @@ export default function SubscribeManage() {
   const [refreshingKey, setRefreshingKey] = useState<string | null>(null);
   const [viewingKey, setViewingKey] = useState<string | null>(null);
   const [deletingKey, setDeletingKey] = useState<string | null>(null);
+  const [togglingKey, setTogglingKey] = useState<string | null>(null);
   const [subVisible, setSubVisible] = useState(false);
   const [subTitle, setSubTitle] = useState('添加订阅');
   const [subForm, setSubForm] = useState<Partial<Subscribe>>({});
@@ -149,6 +150,19 @@ export default function SubscribeManage() {
     finally { setDeletingKey(null); }
   };
 
+  const handleToggleStatus = async (record: Subscribe, newStatus: boolean) => {
+    try {
+      setTogglingKey(record.name);
+      await api.updateSubscribe(record.name, { ...record, status: newStatus });
+      Message.success(newStatus ? '已启用' : '已禁用');
+      await loadData();
+    } catch {
+      Message.error('状态切换失败');
+    } finally {
+      setTogglingKey(null);
+    }
+  };
+
   const handleRefreshOutbounds = async (record: Subscribe) => {
     try {
       setRefreshingKey(record.name);
@@ -226,10 +240,12 @@ export default function SubscribeManage() {
             deletingKey={deletingKey}
             refreshingKey={refreshingKey}
             viewingKey={viewingKey}
+            togglingKey={togglingKey}
             onEdit={handleEditSub}
             onDelete={handleDeleteSub}
             onRefreshOutbounds={handleRefreshOutbounds}
             onViewOutbounds={handleViewOutbounds}
+            onToggleStatus={handleToggleStatus}
           />
         </DataState>
       </div>

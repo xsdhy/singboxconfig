@@ -1,4 +1,4 @@
-import { Button, Tag, Grid, Typography } from '@arco-design/web-react';
+import { Button, Tag, Grid, Typography, Switch } from '@arco-design/web-react';
 import type { Subscribe } from '../types';
 import { summarizeSubscribeCache } from '../utils/subscribeOutbound';
 
@@ -10,10 +10,12 @@ interface Props {
   deletingKey?: string | null;
   refreshingKey?: string | null;
   viewingKey?: string | null;
+  togglingKey?: string | null;
   onEdit: (record: Subscribe) => void;
   onDelete: (record: Subscribe) => void;
   onRefreshOutbounds: (record: Subscribe) => void;
   onViewOutbounds: (record: Subscribe) => void;
+  onToggleStatus: (record: Subscribe, newStatus: boolean) => void;
 }
 
 export default function SubscribeTable({
@@ -21,10 +23,12 @@ export default function SubscribeTable({
   deletingKey,
   refreshingKey,
   viewingKey,
+  togglingKey,
   onEdit,
   onDelete,
   onRefreshOutbounds,
   onViewOutbounds,
+  onToggleStatus,
 }: Props) {
   return (
     <div style={{ marginBottom: 20 }}>
@@ -35,13 +39,17 @@ export default function SubscribeTable({
               <div className="card-header" style={{ padding: '12px 16px 8px' }}>
                 <div style={{ flex: 1 }}>
                   <Title heading={6} style={{ margin: 0, fontSize: 15 }}>{item.name}</Title>
-                  <Tag 
-                    size="small" 
-                    color={item.status ? 'arcoblue' : 'gray'}
-                    style={{ marginTop: 4, scale: '0.9', transformOrigin: 'left center' }}
-                  >
-                    {item.status ? '已启用' : '已禁用'}
-                  </Tag>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 6 }}>
+                    <Switch
+                      size="small"
+                      checked={item.status}
+                      loading={togglingKey === item.name}
+                      onChange={(checked) => onToggleStatus(item, checked)}
+                    />
+                    <Text type="secondary" style={{ fontSize: 12 }}>
+                      {item.status ? '已启用' : '已禁用'}
+                    </Text>
+                  </div>
                 </div>
               </div>
               <div className="card-content" style={{ padding: '0 16px 12px' }}>

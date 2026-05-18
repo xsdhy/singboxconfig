@@ -1,17 +1,20 @@
-import { Button, Grid, Typography, Tag, Space } from '@arco-design/web-react';
-import type { RuleSet } from '../types';
+import { Button, Grid, Typography, Tag, Space, Select } from '@arco-design/web-react';
+import type { RuleSet, NodeGroup } from '../types';
 
 const { Row, Col } = Grid;
 const { Title, Text } = Typography;
 
 interface Props {
   data: RuleSet[];
+  nodeGroups: NodeGroup[];
   deletingKey?: string | null;
+  togglingKey?: string | null;
   onEdit: (record: RuleSet) => void;
   onDelete: (record: RuleSet) => void;
+  onChangeOutbound: (record: RuleSet, newOutbound: string) => void;
 }
 
-export default function RuleSetTable({ data, deletingKey, onEdit, onDelete }: Props) {
+export default function RuleSetTable({ data, nodeGroups, deletingKey, togglingKey, onEdit, onDelete, onChangeOutbound }: Props) {
   return (
     <div style={{ marginBottom: 20 }}>
       <Row gutter={[16, 16]}>
@@ -31,9 +34,27 @@ export default function RuleSetTable({ data, deletingKey, onEdit, onDelete }: Pr
                 </div>
               </div>
               <div className="card-content" style={{ padding: '0 16px 12px' }}>
-                <div style={{ marginBottom: 4 }}>
+                <div style={{ marginBottom: 8 }}>
                   <Text type="secondary" style={{ fontSize: 11 }}>Tag</Text>
                   <div style={{ fontSize: 12, marginTop: 2, fontWeight: 500 }}>{item.tag}</div>
+                </div>
+                <div style={{ marginBottom: 8 }}>
+                  <Text type="secondary" style={{ fontSize: 11 }}>默认出站</Text>
+                  <Select
+                    size="small"
+                    value={item.outbound || ''}
+                    loading={togglingKey === item.tag}
+                    onChange={(value) => onChangeOutbound(item, value)}
+                    style={{ width: '100%', marginTop: 4 }}
+                    placeholder="选择出站"
+                    allowClear
+                  >
+                    {nodeGroups.map((ng) => (
+                      <Select.Option key={ng.tag} value={ng.tag}>
+                        {ng.name} ({ng.tag})
+                      </Select.Option>
+                    ))}
+                  </Select>
                 </div>
                 {item.url && (
                   <div style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>

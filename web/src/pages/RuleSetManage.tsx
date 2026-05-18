@@ -14,6 +14,7 @@ export default function RuleSetManage() {
   const [refreshing, setRefreshing] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [deletingKey, setDeletingKey] = useState<string | null>(null);
+  const [togglingKey, setTogglingKey] = useState<string | null>(null);
   const [rsVisible, setRsVisible] = useState(false);
   const [rsTitle, setRsTitle] = useState('添加规则集');
   const [rsForm, setRsForm] = useState<Partial<RuleSet>>({});
@@ -96,6 +97,19 @@ export default function RuleSetManage() {
     finally { setDeletingKey(null); }
   };
 
+  const handleChangeOutbound = async (record: RuleSet, newOutbound: string) => {
+    try {
+      setTogglingKey(record.tag);
+      await api.updateRuleSet(record.tag, { ...record, outbound: newOutbound });
+      Message.success('出站已更新');
+      await loadData();
+    } catch {
+      Message.error('更新出站失败');
+    } finally {
+      setTogglingKey(null);
+    }
+  };
+
   return (
     <>
       <PageToolbar
@@ -119,9 +133,12 @@ export default function RuleSetManage() {
         >
           <RuleSetTable
             data={ruleSets}
+            nodeGroups={nodeGroups}
             deletingKey={deletingKey}
+            togglingKey={togglingKey}
             onEdit={handleEditRs}
             onDelete={handleDeleteRs}
+            onChangeOutbound={handleChangeOutbound}
           />
         </DataState>
       </div>
