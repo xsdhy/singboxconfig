@@ -39,6 +39,11 @@ React SPA
         -> 存储读取 + 默认值回退
         -> convert/singbox
         -> 输出 sing-box JSON
+  -> /open/surge/:device?token=...
+     -> service.SurgeGenerated
+        -> 复用设备鉴权 + Outbound/规则集/分组读取
+        -> convert/surge
+        -> 输出 Surge 文本
 ```
 
 管理面和生成面是分开的：
@@ -92,7 +97,7 @@ React SPA
 
 ### 3. 配置生成
 
-`GET /open/generate/:device?token=...` 是系统核心入口，处理顺序为：
+`GET /open/generate/:device?token=...` 是 sing-box JSON 输出入口，处理顺序为：
 
 1. 解析设备并校验 token
 2. 读取 DNS 全局配置
@@ -103,6 +108,8 @@ React SPA
 7. 根据节点分组规则构造 selector/urltest
 8. 组装 route、experimental、inbounds、outbounds
 9. 返回 `entity.SingBoxConfig`
+
+`GET /open/surge/:device?token=...` 是 Surge 文本输出入口。它复用相同的数据层能力，并将 Shadowsocks、Trojan、VMess 节点、节点分组和规则集渲染为 Surge 的 `[General]`、`[Proxy]`、`[Proxy Group]`、`[Rule]` 分段文本。
 
 ## 兼容性设计
 

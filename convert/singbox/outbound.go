@@ -1,8 +1,8 @@
 package singbox
 
 import (
+	"singboxconfig/convert/common"
 	"singboxconfig/entity"
-	"strings"
 )
 
 // GetOutbounds 基于已经准备好的缓存出站构建最终 sing-box outbounds。
@@ -42,14 +42,14 @@ func constructOutboundGroup(groupRules []*entity.NodeGroup, tags []string) []ent
 
 		// 根据类型设置特定配置
 		switch groupRule.GroupType {
-		case "urltest":
+		case string(entity.NodeGroupTypeURLTest):
 			if groupRule.TestURL == "" {
 				groupRule.TestURL = "https://www.gstatic.com/generate_204"
 			}
 			item.URL = groupRule.TestURL
 			item.Interval = "10m"
 			item.Tolerance = 50 // 添加容差值
-		case "selector":
+		case string(entity.NodeGroupTypeSelector), string(entity.NodeGroupTypeSelect):
 			if len(filteredTags) > 0 {
 				item.Default = filteredTags[0] // 设置默认节点
 			}
@@ -62,67 +62,7 @@ func constructOutboundGroup(groupRules []*entity.NodeGroup, tags []string) []ent
 
 // outboundGroupRuleFilter 根据规则过滤标签
 func outboundGroupRuleFilter(groupRule *entity.NodeGroup, tags []string) []string {
-	if groupRule == nil || len(tags) == 0 {
-		return []string{}
-	}
-	includes := make([]string, 0)
-	excludes := make([]string, 0)
-	if groupRule.Include != "" {
-		if strings.Contains(groupRule.Include, ",") {
-			includes = strings.Split(groupRule.Include, ",")
-		} else {
-			includes = append(includes, groupRule.Include)
-		}
-	}
-	if groupRule.Exclude != "" {
-		if strings.Contains(groupRule.Exclude, ",") {
-			excludes = strings.Split(groupRule.Exclude, ",")
-		} else {
-			excludes = append(excludes, groupRule.Exclude)
-		}
-	}
-
-	// 使用map来存储匹配的标签，避免重复
-	matchedTags := make(map[string]struct{})
-
-	// 如果没有包含规则，默认包含所有标签
-	if len(includes) == 0 {
-		for _, tag := range tags {
-			matchedTags[tag] = struct{}{}
-		}
-	} else {
-		// 根据包含规则筛选标签
-		for _, tag := range tags {
-			for _, include := range includes {
-				if strings.Contains(tag, include) {
-					matchedTags[tag] = struct{}{}
-					break
-				}
-			}
-		}
-	}
-
-	// 如果有排除规则，从匹配的标签中移除
-	if len(excludes) > 0 {
-		for tag := range matchedTags {
-			for _, exclude := range excludes {
-				if strings.Contains(tag, exclude) {
-					delete(matchedTags, tag)
-					break
-				}
-			}
-		}
-	}
-
-	// 按原始 tags 顺序输出，避免 map 遍历导致生成结果和测试顺序不稳定。
-	result := make([]string, 0, len(matchedTags))
-	for _, tag := range tags {
-		if _, ok := matchedTags[tag]; ok {
-			result = append(result, tag)
-		}
-	}
-
-	return result
+	return common.FilterOutboundGroupTags(groupRule, tags)
 }
 
 func getTagsFromOutbounds(outbounds []entity.SingBoxOut) []string {

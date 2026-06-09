@@ -95,11 +95,13 @@
 - 绑定 WireGuard 模板
 - 维护 WireGuard 客户端地址和私钥
 - 通过抽屉配置设备可用的 Inbound 列表
+- 复制 sing-box 与 Surge 两种设备配置订阅链接
 
 特点：
 
 - 页面初始化时会并行加载 `devices`、`inbounds`、`wire-guards`
 - 设备与 Inbound 的绑定是“全量替换提交”
+- 本地 Vite 开发环境下，复制的公开配置链接会指向后端默认端口 `7391`
 
 ## Inbound 管理
 

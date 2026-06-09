@@ -42,6 +42,7 @@
 - `WireGuardStorage`
 - `WireGuardPeerStorage`
 - `ExtraOutboundStorage`
+- `OutboundStorage`
 
 最终：
 
@@ -57,6 +58,7 @@ type Storage interface {
     WireGuardStorage
     WireGuardPeerStorage
     ExtraOutboundStorage
+    OutboundStorage
 }
 ```
 
@@ -73,7 +75,7 @@ type Storage interface {
 存储层对外统一使用 `entity/` 下的实体，而不是暴露数据库模型或 HTTP DTO。这样有几个直接效果：
 
 - `service/` 与具体存储方式解耦
-- `convert/singbox/` 可以直接消费服务层取出的实体
+- `convert/singbox/` 与 `convert/surge/` 可以直接消费服务层取出的实体
 - 导入导出可以直接复用实体结构
 
 例如：
@@ -100,6 +102,7 @@ type Storage interface {
 - `DBWireGuard`
 - `DBWireGuardPeer`
 - `DBExtraOutbound`
+- `DBOutbound`
 
 数据库模型定义集中在 `storage/models.go`。
 

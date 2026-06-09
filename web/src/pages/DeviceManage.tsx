@@ -36,6 +36,23 @@ function getWireGuardLabel(record: Device, wireGuards: WireGuard[]) {
   return matched ? `${matched.name} (${matched.tag})` : record.wireGuardTag;
 }
 
+// getOpenAPIOrigin 生成公开配置链接的源地址。
+// Vite 开发环境没有代理 /open/*，因此本地 5173 页面复制链接时指向后端默认端口。
+function getOpenAPIOrigin() {
+  if (window.location.hostname === 'localhost' && window.location.port === '5173') {
+    return 'http://localhost:7391';
+  }
+  return window.location.origin;
+}
+
+// buildDeviceConfigURL 根据设备和输出格式构造可直接给客户端订阅的公开链接。
+function buildDeviceConfigURL(record: Device, outputType: 'singbox' | 'surge') {
+  const endpoint = outputType === 'surge' ? 'surge' : 'generate';
+  const url = new URL(`/open/${endpoint}/${encodeURIComponent(record.code)}`, getOpenAPIOrigin());
+  url.searchParams.set('token', record.token);
+  return url.toString();
+}
+
 export default function DeviceManage() {
   const [devices, setDevices] = useState<Device[]>([]);
   const [inbounds, setInbounds] = useState<Inbound[]>([]);
@@ -190,6 +207,15 @@ export default function DeviceManage() {
     });
   };
 
+  const handleCopyConfigURL = async (record: Device, outputType: 'singbox' | 'surge') => {
+    try {
+      await navigator.clipboard.writeText(buildDeviceConfigURL(record, outputType));
+      Message.success(`${outputType === 'surge' ? 'Surge' : 'sing-box'} 链接已复制`);
+    } catch {
+      Message.error('复制配置链接失败');
+    }
+  };
+
   // 打开绑定抽屉时，把后端列表转换成“勾选集合 + sort 映射”两份前端状态。
   const handleEditBindings = async (record: Device) => {
     try {
@@ -298,6 +324,14 @@ export default function DeviceManage() {
                       <div style={{ fontSize: 12, fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                         {getWireGuardLabel(record, wireGuards)}
                       </div>
+                    </div>
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      <Button size="small" style={{ flex: 1 }} onClick={() => handleCopyConfigURL(record, 'singbox')}>
+                        sing-box
+                      </Button>
+                      <Button size="small" style={{ flex: 1 }} onClick={() => handleCopyConfigURL(record, 'surge')}>
+                        Surge
+                      </Button>
                     </div>
                   </Space>
                 </div>

@@ -6,7 +6,7 @@
 
 ## 项目简介
 
-SingBox Config 是一个基于 Go 语言的 **sing-box 代理配置管理系统**，提供订阅源管理、节点分组、规则集配置、设备管理、WireGuard 端点管理等功能，能够为每台设备动态生成定制化的 sing-box JSON 配置文件。
+SingBox Config 是一个基于 Go 语言的 **sing-box 代理配置管理系统**，提供订阅源管理、节点分组、规则集配置、设备管理、WireGuard 端点管理等功能，能够为每台设备动态生成定制化的 sing-box JSON 与 Surge 文本配置文件。
 
 项目采用前后端分离架构，前端构建产物嵌入 Go 二进制中一体化部署：
 - **后端服务**: Go + Gin + GORM，支持多种存储后端（PostgreSQL / MySQL / Supabase / JSON 文件）
@@ -152,6 +152,7 @@ docs/
 - **Outbound 管理**: 统一管理手工节点与订阅缓存节点，支持缓存与筛选
 - **DNS 配置**: 配置 DNS 服务器与路由规则
 - **配置生成**: 一键生成设备专属的完整 sing-box JSON 配置
+- **Surge 输出**: 复用同一数据层生成设备专属 Surge 配置文本
 - **导入导出**: 配置数据的备份、迁移与默认值初始化
 
 ## 文档维护说明

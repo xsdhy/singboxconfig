@@ -2,13 +2,14 @@
 
 ## 模块职责
 
-规则集管理负责维护 sing-box `route.rule_set` 和基于规则集的路由规则。它把“规则内容”与“命中后走哪个出站”绑定在一起。
+规则集管理负责维护规则内容和命中后的出站策略。sing-box 输出会把它转换为 `route.rule_set` 与 `route.rules`，Surge 输出会把它转换为 `[Rule]` 段中的 `RULE-SET` 或展开后的规则行。
 
 代码入口：
 
 - 实体定义：`entity/rule_set.go`
 - 管理接口：`service/service.go`
-- 生成转换：`convert/singbox/route.go`
+- sing-box 生成转换：`convert/singbox/route.go`
+- Surge 生成转换：`convert/surge/surge.go`
 
 ## 数据模型
 
@@ -64,6 +65,15 @@
 - 先写入一组基础规则
 - 再按 `sort` 升序遍历规则集
 - 每条规则集追加一条 `{"rule_set":[tag], "outbound": outbound}`
+
+## 生成到 Surge 的方式
+
+`convert/surge.Render()` 会把规则集输出到 `[Rule]` 段：
+
+- `ruleSetType == "remote"`：输出 `RULE-SET,<url>,<outbound>`
+- `local` / `inline`：解析 `content` 中常见的 `domain`、`domain_suffix`、`domain_keyword`、`domain_regex`、`ip_cidr`、`geoip` 字段，并展开为 Surge 规则行
+- 非法本地 JSON 会跳过并记录 warning，不中断整体配置生成
+- 最后固定追加 `FINAL,general`
 
 ## 设备可见性控制
 

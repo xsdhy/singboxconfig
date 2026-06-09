@@ -2,7 +2,7 @@
 
 ## 模块职责
 
-Outbound 模块统一管理最终会进入 sing-box `outbounds` 的出站记录，覆盖两类来源：
+Outbound 模块统一管理最终会进入各输出格式的出站记录。当前 sing-box 会输出到 `outbounds`，Surge 会输出到 `[Proxy]`，覆盖两类来源：
 
 - `MANUAL`：后台手工维护的静态出站
 - `SUBSCRIPTION`：从订阅源解析后落库的缓存出站
@@ -15,7 +15,8 @@ Outbound 模块统一管理最终会进入 sing-box `outbounds` 的出站记录�
 - API 实现：`service/outbound_api.go`
 - 缓存刷新：`service/outbound_cache.go`
 - 存储抽象：`storage/storage.go`
-- 生成拼装：`convert/singbox/outbound.go`
+- sing-box 生成拼装：`convert/singbox/outbound.go`
+- Surge 生成拼装：`convert/surge/surge.go`
 
 ## 数据模型
 
@@ -34,7 +35,7 @@ Outbound 模块统一管理最终会进入 sing-box `outbounds` 的出站记录�
 - `subscribeName`：所属订阅名称，仅 `SUBSCRIPTION` 时有值
 - `lastFetchTime`：订阅缓存最近一次写入时间，仅 `SUBSCRIPTION` 时有意义
 
-与 Inbound 模块类似，真正参与配置生成的是 `configJson` 反序列化后的结果，而不是文档中的展示字段本身。
+与 Inbound 模块类似，真正参与配置生成的是 `configJson` 反序列化后的结果，而不是文档中的展示字段本身。Surge 输出会在这一步之后继续按协议能力映射，无法表达的协议会跳过。
 
 ## 管理接口
 
@@ -78,12 +79,14 @@ Outbound 模块统一管理最终会进入 sing-box `outbounds` 的出站记录�
 3. 从统一 Outbound 表中读取当前设备可见且启用的记录
 4. 过滤掉属于禁用/不可见订阅的 `SUBSCRIPTION` 来源 Outbound
 
-这确保了禁用某个订阅后，其已缓存的节点不会出现在生成的配置中。手动维护的 `MANUAL` 来源 Outbound 不受订阅状态影响。
+这确保了禁用某个订阅后，其已缓存的节点不会出现在任一生成配置中。手动维护的 `MANUAL` 来源 Outbound 不受订阅状态影响。
 
-后续处理分两步：
+sing-box 后续处理分两步：
 
 1. `singbox.GetExtraOutbounds(deviceCode, items)` 负责设备可见性过滤、排序和 `configJson` 反序列化
 2. `singbox.GetOutbounds(...)` 负责构造节点分组并固定追加 `direct` 出站
+
+Surge 后续处理会复用同一批 `entity.SingBoxOut`，先导出支持的代理，再用成功导出的代理名构造 Proxy Group 和 Rule。
 
 这意味着生成链路已经不再直接发起订阅网络请求，也不再区分“额外出站”和“订阅节点”两条独立主线。
 

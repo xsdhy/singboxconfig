@@ -2,13 +2,21 @@
 
 ## 总体说明
 
-配置生成是本项目最核心的能力，入口在 `service/generated.go` 的 `Generated` 方法，对应接口：
+配置生成是本项目最核心的能力，主入口在 `service/generated.go` 的 `Generated` 方法，对应接口：
 
 ```text
 GET /open/generate/:device?token=...
 ```
 
 它的职责是根据设备身份、后台维护的数据和一组默认兜底规则，实时生成完整的 sing-box JSON。
+
+当前还提供一条平行输出链路：
+
+```text
+GET /open/surge/:device?token=...
+```
+
+Surge 输出复用同一套设备解析、token 鉴权、DNS 读取、订阅缓存刷新、Outbound 可见性过滤、节点分组筛选和规则集过滤，最后由 `convert/surge` 渲染为 INI 风格文本。它不导出 Inbound 与 WireGuard endpoint。
 
 这个流程不是简单地“读数据库后原样返回”，而是一个逐步组装过程：
 
@@ -308,6 +316,15 @@ entity.SingBoxConfig{
 ```
 
 然后通过 `c.JSON(http.StatusOK, singBoxConfig)` 返回给客户端。
+
+Surge 输出入口 `SurgeGenerated` 复用前面的致命错误处理和 `resolveGenerateOutbounds(ctx, deviceCode)`，但不组装 sing-box 专属的 Inbound、Endpoint、Experimental。它读取 `ListNodeGroups()` 和 `ListRuleSets()` 后调用 `surge.Render(...)`，通过 `text/plain` 返回包含 `[General]`、`[Proxy]`、`[Proxy Group]`、`[Rule]` 的配置文本。
+
+Surge 渲染规则：
+
+- `[General]` 从 sing-box DNS server 中提取上游地址，跳过 `rcode://` 这类非上游地址
+- `[Proxy]` 导出 Shadowsocks、Trojan、VMess；不支持或关键字段缺失的节点跳过并记录 warning
+- `[Proxy Group]` 复用同一份 include / exclude 筛选逻辑，且只引用已成功导出的代理名称
+- `[Rule]` 对 remote 规则集输出 `RULE-SET,<url>,<outbound>`，对本地规则集展开常见域名、CIDR、GEOIP 规则，最后追加 `FINAL,general`
 
 ## 错误处理策略
 

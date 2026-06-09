@@ -4,6 +4,7 @@ import (
 	"errors"
 	"net/http"
 	"singboxconfig/convert/singbox"
+	"singboxconfig/convert/surge"
 	"singboxconfig/entity"
 	"singboxconfig/storage"
 	"sort"
@@ -78,6 +79,60 @@ func (s *Service) Generated(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, singBoxConfig)
+}
+
+// SurgeGenerated 按设备输出 Surge 配置文本。
+// 设备解析、启用状态、token 鉴权、订阅缓存刷新与 Outbound 可见性过滤均复用 sing-box 生成链路，
+// 仅在最后一步改为调用 Surge 渲染器，保证两套输出共享同一份数据治理能力。
+func (s *Service) SurgeGenerated(c *gin.Context) {
+	deviceCode := c.Param("device")
+	token := c.Query("token")
+
+	device, err := s.resolveGenerateDevice(deviceCode)
+	if err != nil {
+		if errors.Is(err, storage.ErrNotFound) {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Device not found"})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	if !device.Enabled {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Device disabled"})
+		return
+	}
+	if token != device.Token {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		return
+	}
+
+	dnsConfigJSON, err := s.resolveDNSConfigJSON()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	ruleSets, err := s.storage.ListRuleSets()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	groupRules, err := s.storage.ListNodeGroups()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	outbounds, err := s.resolveGenerateOutbounds(c.Request.Context(), device.Code)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	configText := surge.Render(device.Code, singbox.ResolveDNS(dnsConfigJSON), outbounds, groupRules, ruleSets)
+	c.String(http.StatusOK, configText)
 }
 
 // resolveGenerateDevice 负责解析生成目标设备。

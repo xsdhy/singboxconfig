@@ -109,7 +109,10 @@ formData.append('file', file);
 当前 `api/index.ts` 只封装管理端接口，没有封装：
 
 - `/open/generate/:device`
+- `/open/surge/:device`
 - `/open/ruleset/:tag`
+
+设备页展示的 sing-box 与 Surge 订阅链接由页面根据设备 `code` 和 `token` 直接拼接，不经过 Axios client。
 
 ## 建议的扩展方向
 

@@ -21,6 +21,8 @@ Vite 会代理 `/api` 到 `http://localhost:7391`。
 - `storage`：存储抽象与各后端实现
 - `entity`：核心领域对象与 sing-box 输出结构
 - `convert/singbox`：从存储实体到 sing-box JSON 的转换逻辑
+- `convert/surge`：从同一批存储实体到 Surge 文本配置的转换逻辑
+- `convert/common`：多输出格式共享的纯函数辅助逻辑
 - `protocol`：订阅协议 URL 解码器
 
 前端核心分层：
@@ -96,6 +98,7 @@ make build
 
 - 是否需要在 `service/generated.go` 中接入
 - 是否需要在 `convert/singbox/` 中增加转换逻辑
+- 是否需要在 `convert/surge/` 中同步支持或显式降级
 - 是否需要修改设备过滤或排序逻辑
 
 ## 测试现状

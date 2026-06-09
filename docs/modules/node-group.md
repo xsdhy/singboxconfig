@@ -2,20 +2,22 @@
 
 ## 模块职责
 
-节点分组负责把“订阅解析得到的原始节点标签”组织成 sing-box 的策略出站。它本身不保存节点，只保存筛选规则和分组类型。
+节点分组负责把“订阅解析得到的原始节点标签”组织成策略分组。它本身不保存节点，只保存筛选规则和分组类型；生成时可分别渲染为 sing-box 出站组或 Surge Proxy Group。
 
 代码入口：
 
 - 实体定义：`entity/node_group.go`
 - 管理接口：`service/service.go`
-- 生成转换：`convert/singbox/outbound.go`
+- 共享筛选：`convert/common/group.go`
+- sing-box 生成转换：`convert/singbox/outbound.go`
+- Surge 生成转换：`convert/surge/surge.go`
 
 ## 数据模型
 
 `entity.NodeGroup` 字段：
 
 - `name`：后台展示名称
-- `tag`：sing-box 内唯一标识，供路由规则和其他模块引用
+- `tag`：配置内唯一标识，供路由规则和其他模块引用
 - `groupType`：当前主要使用 `selector` 或 `urltest`
 - `testURL`：仅 `urltest` 使用，留空时回退到默认探测地址
 - `include`：逗号分隔包含关键字
@@ -36,7 +38,7 @@
 
 ## 生成逻辑
 
-生成时，`convert/singbox.GetOutbounds()` 会在所有订阅节点与额外出站加载完成后，再调用 `constructOutboundGroup()` 组装分组。
+生成时，`resolveGenerateOutbounds()` 会先得到当前设备可见的统一 Outbound。sing-box 输出由 `convert/singbox.GetOutbounds()` 组装 selector / urltest 出站；Surge 输出由 `convert/surge.Render()` 组装 select / url-test Proxy Group。
 
 处理顺序：
 
@@ -47,7 +49,7 @@
 
 ## 关键字过滤规则
 
-过滤函数为 `outboundGroupRuleFilter()`，行为如下：
+过滤函数为 `common.FilterOutboundGroupTags()`，行为如下：
 
 - `include` 为空：默认包含所有标签
 - `include` 非空：标签命中任一包含关键字即可入组
@@ -80,6 +82,13 @@
 - `tolerance: 50`
 
 适合自动测速和自动选择出口的场景。
+
+Surge 输出中会映射为：
+
+- `selector` / `select` -> `select`
+- `urltest` -> `url-test`
+
+Surge Proxy Group 只引用 `[Proxy]` 中已成功导出的节点，避免不支持协议被跳过后产生悬空成员。
 
 ## 与其他模块的关系
 

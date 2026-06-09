@@ -82,7 +82,8 @@ docker run -d \
 - `/api/admin`：嵌入式管理台
 - `/api/auth/login`：登录接口
 - `/api/*`：管理接口，需 Bearer Token
-- `/open/generate/:device`：公开配置生成接口
+- `/open/generate/:device`：公开 sing-box 配置生成接口
+- `/open/surge/:device`：公开 Surge 配置生成接口
 - `/open/ruleset/:tag`：公开规则集读取接口
 
 ## 存储后端选择
@@ -119,7 +120,7 @@ docker run -d \
 
 ### 3. 公开生成接口依赖设备 token
 
-`/open/generate/:device` 不走管理端登录体系，而是通过查询参数 `token` 鉴权。
+`/open/generate/:device` 与 `/open/surge/:device` 不走管理端登录体系，而是通过查询参数 `token` 鉴权。
 
 ### 4. 必须配置数据库
 

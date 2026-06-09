@@ -120,13 +120,19 @@ ORM 使用 `gorm.io/gorm v1.31.1`，数据库驱动依赖包含：
 - Trojan
 - VMess
 
-当前生成链路在 `convert/singbox/outbound.go` 中启用了：
+当前订阅解析链路在 `service/outbound_cache.go` 中启用了：
 
 - `ss`
 - `trojan`
 - `vmess`
 
 `ssr` 代码和测试存在，但尚未加入 `convertMap`。
+
+### 多格式配置渲染
+
+`convert/singbox/` 负责 sing-box JSON，`convert/surge/` 负责 Surge INI 文本。两者共享 `entity.SingBoxOut` 作为出站中间结构，并通过 `convert/common/` 复用节点分组筛选等纯函数逻辑。
+
+Surge 输出当前覆盖 Shadowsocks、Trojan 和 best-effort VMess；不支持协议会按局部降级策略跳过。
 
 ## 前端技术选型
 
