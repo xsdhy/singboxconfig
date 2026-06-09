@@ -2,7 +2,7 @@
 
 ## 模块职责
 
-协议解码器负责把订阅中的节点 URL 转换为统一的 `entity.SingBoxOut`。这是订阅管理和 sing-box 生成之间的桥接层。
+协议解码器负责把订阅中的节点 URL 转换为统一的 `entity.SingBoxOut`。这是订阅管理和 sing-box / Surge / Shadowrocket 多格式生成之间的桥接层。
 
 代码入口：
 
@@ -14,11 +14,10 @@
 生成链路不会直接解析所有节点，而是先读取 URL scheme，再根据 `subscriptionOutboundConvertMap` 分发：
 
 - `ss` -> `DecodeSSURLToSingBox`
+- `ssr` -> `DecodeSSRURLToSingBox`
 - `trojan` -> `DecodeTrojanUrlToSingBox`
 - `vmess` -> `DecodeVmessUrlToSingBox`
 - `vless` -> `DecodeVlessUrlToSingBox`
-
-`ssr` 虽然已有实现 `DecodeSSRURLToSingBox`，但当前未注册进 `subscriptionOutboundConvertMap`，因此不会在实际生成中生效。
 
 统一流程：
 
@@ -75,7 +74,7 @@
 - `obfs`
 - `obfs_param`
 
-注意：该解码器当前只在代码层存在，未进入实际订阅生成链路。
+注意：该解码器已进入订阅生成链路。Surge 输出会因为客户端能力限制跳过 SSR；Shadowrocket 输出会导出 SSR。
 
 ## Trojan
 
@@ -184,11 +183,10 @@
 - 缺少统一的解码器接口抽象，目前靠函数表调度
 - 不做节点去重
 - 各协议字段映射覆盖度有限，只支持项目当前需要的一部分 sing-box 参数
-- SSR 已实现但未接通
 
 ## 适合更新本文档的场景
 
 - 新增订阅协议
 - 修改字段映射规则
 - 调整标签清洗逻辑
-- 把 SSR 或其他协议接入 `convertMap`
+- 把新协议接入 `subscriptionOutboundConvertMap`

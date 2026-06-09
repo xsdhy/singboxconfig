@@ -3,6 +3,7 @@ package service
 import (
 	"errors"
 	"net/http"
+	"singboxconfig/convert/shadowrocket"
 	"singboxconfig/convert/singbox"
 	"singboxconfig/convert/surge"
 	"singboxconfig/entity"
@@ -132,6 +133,60 @@ func (s *Service) SurgeGenerated(c *gin.Context) {
 	}
 
 	configText := surge.Render(device.Code, singbox.ResolveDNS(dnsConfigJSON), outbounds, groupRules, ruleSets)
+	c.String(http.StatusOK, configText)
+}
+
+// ShadowrocketGenerated 按设备输出 Shadowrocket 配置文本。
+// 这里与 Surge 输出一样只负责 HTTP 编排：设备解析、启用状态、token 鉴权、DNS、规则集、
+// 节点分组和统一 Outbound 均复用现有生成链路，协议能力差异全部留给 Shadowrocket 渲染器处理。
+func (s *Service) ShadowrocketGenerated(c *gin.Context) {
+	deviceCode := c.Param("device")
+	token := c.Query("token")
+
+	device, err := s.resolveGenerateDevice(deviceCode)
+	if err != nil {
+		if errors.Is(err, storage.ErrNotFound) {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Device not found"})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	if !device.Enabled {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Device disabled"})
+		return
+	}
+	if token != device.Token {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		return
+	}
+
+	dnsConfigJSON, err := s.resolveDNSConfigJSON()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	ruleSets, err := s.storage.ListRuleSets()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	groupRules, err := s.storage.ListNodeGroups()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	outbounds, err := s.resolveGenerateOutbounds(c.Request.Context(), device.Code)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	configText := shadowrocket.Render(device.Code, singbox.ResolveDNS(dnsConfigJSON), outbounds, groupRules, ruleSets)
 	c.String(http.StatusOK, configText)
 }
 

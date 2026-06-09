@@ -6,7 +6,7 @@
 
 ## 项目简介
 
-SingBox Config 是一个基于 Go 语言的 **sing-box 代理配置管理系统**，提供订阅源管理、节点分组、规则集配置、设备管理、WireGuard 端点管理等功能，能够为每台设备动态生成定制化的 sing-box JSON 与 Surge 文本配置文件。
+SingBox Config 是一个基于 Go 语言的 **sing-box 代理配置管理系统**，提供订阅源管理、节点分组、规则集配置、设备管理、WireGuard 端点管理等功能，能够为每台设备动态生成定制化的 sing-box JSON、Surge 文本配置与 Shadowrocket 文本配置文件。
 
 项目采用前后端分离架构，前端构建产物嵌入 Go 二进制中一体化部署：
 - **后端服务**: Go + Gin + GORM，支持多种存储后端（PostgreSQL / MySQL / Supabase / JSON 文件）
@@ -37,7 +37,7 @@ SingBox Config 是一个基于 Go 语言的 **sing-box 代理配置管理系统*
 
 | 文档 | 说明 |
 |------|------|
-| [订阅管理](./modules/subscribe.md) | 订阅源 CRUD、多协议解析（SS/SSR/Trojan/VMess） |
+| [订阅管理](./modules/subscribe.md) | 订阅源 CRUD、多协议解析（SS/SSR/Trojan/VMess/VLESS） |
 | [节点分组](./modules/node-group.md) | 节点分组规则、selector/urltest 策略 |
 | [规则集管理](./modules/rule-set.md) | 路由规则集定义、本地/远程规则源 |
 | [设备管理](./modules/device.md) | 设备注册、Token 认证、配置绑定 |
@@ -46,7 +46,7 @@ SingBox Config 是一个基于 Go 语言的 **sing-box 代理配置管理系统*
 | [Outbound 管理](./modules/outbound.md) | 统一管理手工节点与订阅缓存节点 |
 | [DNS 配置](./modules/dns.md) | DNS 服务器与路由规则配置 |
 | [配置导入导出](./modules/config-transfer.md) | 配置数据的导出、导入与默认值初始化 |
-| [协议解码器](./modules/protocol-decoders.md) | SS/SSR/Trojan/VMess URL 解析实现 |
+| [协议解码器](./modules/protocol-decoders.md) | SS/SSR/Trojan/VMess/VLESS URL 解析实现 |
 
 ### 前端文档 (frontend/)
 
@@ -126,7 +126,7 @@ docs/
 - **云存储**: Supabase REST API（可选后端）
 - **文件存储**: JSON 文件（内存模式，适合轻量部署）
 - **日志**: Logrus v1.9.3
-- **协议解析**: 自研 SS/SSR/Trojan/VMess 解码器
+- **协议解析**: 自研 SS/SSR/Trojan/VMess/VLESS 解码器
 
 ### 前端
 - **框架**: React 18.3.1
@@ -153,6 +153,7 @@ docs/
 - **DNS 配置**: 配置 DNS 服务器与路由规则
 - **配置生成**: 一键生成设备专属的完整 sing-box JSON 配置
 - **Surge 输出**: 复用同一数据层生成设备专属 Surge 配置文本
+- **Shadowrocket 输出**: 复用同一数据层生成设备专属 Shadowrocket 配置文本，覆盖 SS / SSR / Trojan / VMess / VLESS 等协议
 - **导入导出**: 配置数据的备份、迁移与默认值初始化
 
 ## 文档维护说明

@@ -19,7 +19,13 @@ import DataState from '../components/DataState';
 import PageToolbar from '../components/PageToolbar';
 import type { Device, Inbound, WireGuard } from '../types';
 import { buildDeleteConfirmContent } from '../utils/deleteConfirm';
-import { buildDeviceInboundPayload, buildDeviceInboundSelection } from '../utils/deviceManagement';
+import {
+  buildDeviceConfigURL,
+  buildDeviceInboundPayload,
+  buildDeviceInboundSelection,
+  DEVICE_CONFIG_OUTPUTS,
+  type DeviceConfigOutputType,
+} from '../utils/deviceManagement';
 
 const FormItem = Form.Item;
 const TextArea = Input.TextArea;
@@ -43,14 +49,6 @@ function getOpenAPIOrigin() {
     return 'http://localhost:7391';
   }
   return window.location.origin;
-}
-
-// buildDeviceConfigURL 根据设备和输出格式构造可直接给客户端订阅的公开链接。
-function buildDeviceConfigURL(record: Device, outputType: 'singbox' | 'surge') {
-  const endpoint = outputType === 'surge' ? 'surge' : 'generate';
-  const url = new URL(`/open/${endpoint}/${encodeURIComponent(record.code)}`, getOpenAPIOrigin());
-  url.searchParams.set('token', record.token);
-  return url.toString();
 }
 
 export default function DeviceManage() {
@@ -207,10 +205,10 @@ export default function DeviceManage() {
     });
   };
 
-  const handleCopyConfigURL = async (record: Device, outputType: 'singbox' | 'surge') => {
+  const handleCopyConfigURL = async (record: Device, outputType: DeviceConfigOutputType) => {
     try {
-      await navigator.clipboard.writeText(buildDeviceConfigURL(record, outputType));
-      Message.success(`${outputType === 'surge' ? 'Surge' : 'sing-box'} 链接已复制`);
+      await navigator.clipboard.writeText(buildDeviceConfigURL(record, outputType, getOpenAPIOrigin()));
+      Message.success(`${DEVICE_CONFIG_OUTPUTS[outputType].label} 链接已复制`);
     } catch {
       Message.error('复制配置链接失败');
     }
@@ -331,6 +329,9 @@ export default function DeviceManage() {
                       </Button>
                       <Button size="small" style={{ flex: 1 }} onClick={() => handleCopyConfigURL(record, 'surge')}>
                         Surge
+                      </Button>
+                      <Button size="small" style={{ flex: 1, fontSize: 12 }} onClick={() => handleCopyConfigURL(record, 'shadowrocket')}>
+                        Shadowrocket
                       </Button>
                     </div>
                   </Space>

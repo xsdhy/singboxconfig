@@ -7,6 +7,8 @@ type OutboundProtocol string
 const (
 	// OutboundProtocolShadowsocks 表示 Shadowsocks 出站，Surge 中映射为 ss。
 	OutboundProtocolShadowsocks OutboundProtocol = "shadowsocks"
+	// OutboundProtocolShadowsocksR 表示 ShadowsocksR 出站，Shadowrocket 可完整映射其协议与混淆参数。
+	OutboundProtocolShadowsocksR OutboundProtocol = "shadowsocksr"
 	// OutboundProtocolTrojan 表示 Trojan 出站，Surge 可完整映射其基础连接与 TLS 参数。
 	OutboundProtocolTrojan OutboundProtocol = "trojan"
 	// OutboundProtocolVMess 表示 VMess 出站，Surge 仅支持 best-effort 映射。

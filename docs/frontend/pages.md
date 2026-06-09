@@ -95,7 +95,7 @@
 - 绑定 WireGuard 模板
 - 维护 WireGuard 客户端地址和私钥
 - 通过抽屉配置设备可用的 Inbound 列表
-- 复制 sing-box 与 Surge 两种设备配置订阅链接
+- 复制 sing-box、Surge 与 Shadowrocket 三种设备配置订阅链接
 
 特点：
 

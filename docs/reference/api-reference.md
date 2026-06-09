@@ -27,6 +27,7 @@
 
 - `/open/generate/:device`：通过查询参数 `token` 鉴权
 - `/open/surge/:device`：通过查询参数 `token` 鉴权
+- `/open/shadowrocket/:device`：通过查询参数 `token` 鉴权
 - `/open/ruleset/:tag`：无需额外鉴权
 
 ## 返回风格
@@ -79,6 +80,31 @@
 状态码：
 
 - `200`：返回 Surge INI 风格配置文本
+- `401`：token 不匹配
+- `403`：设备被禁用
+- `404`：设备不存在
+
+### `GET /open/shadowrocket/:device`
+
+用途：
+
+- 为设备生成 Shadowrocket 配置文本
+
+查询参数：
+
+- `token`：设备 token
+
+说明：
+
+- 复用 `/open/generate/:device` 的设备解析、启用状态和 token 鉴权
+- 复用订阅缓存刷新、Outbound 设备可见性过滤、节点分组筛选和规则集过滤
+- `Content-Type` 为 `text/plain`
+- Shadowsocks / ShadowsocksR / Trojan / VMess / VLESS 会完整映射
+- Hysteria2 / TUIC 做 best-effort 映射；Hysteria v1 等暂不导出的协议会跳过并记录 warning
+
+状态码：
+
+- `200`：返回 Shadowrocket INI 风格配置文本
 - `401`：token 不匹配
 - `403`：设备被禁用
 - `404`：设备不存在
@@ -422,6 +448,28 @@ curl -X GET "http://localhost:7391/open/generate/phone?token=device-token-123"
 
 ```bash
 curl -X GET "http://localhost:7391/open/surge/phone?token=device-token-123"
+```
+
+**成功响应 (200)**：
+
+```ini
+[General]
+dns-server = system
+
+[Proxy]
+Proxy-SS = ss, 1.2.3.4, 8000, encrypt-method=chacha20-ietf-poly1305, password=abcd1234
+
+[Proxy Group]
+general = select, Proxy-SS
+
+[Rule]
+FINAL,general
+```
+
+### 生成 Shadowrocket 设备配置
+
+```bash
+curl -X GET "http://localhost:7391/open/shadowrocket/phone?token=device-token-123"
 ```
 
 **成功响应 (200)**：

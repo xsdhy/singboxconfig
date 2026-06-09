@@ -44,6 +44,11 @@ React SPA
         -> 复用设备鉴权 + Outbound/规则集/分组读取
         -> convert/surge
         -> 输出 Surge 文本
+  -> /open/shadowrocket/:device?token=...
+     -> service.ShadowrocketGenerated
+        -> 复用设备鉴权 + Outbound/规则集/分组读取
+        -> convert/shadowrocket
+        -> 输出 Shadowrocket 文本
 ```
 
 管理面和生成面是分开的：
@@ -111,6 +116,8 @@ React SPA
 
 `GET /open/surge/:device?token=...` 是 Surge 文本输出入口。它复用相同的数据层能力，并将 Shadowsocks、Trojan、VMess 节点、节点分组和规则集渲染为 Surge 的 `[General]`、`[Proxy]`、`[Proxy Group]`、`[Rule]` 分段文本。
 
+`GET /open/shadowrocket/:device?token=...` 是 Shadowrocket 文本输出入口。它复用相同的数据层能力，并将 Shadowsocks、ShadowsocksR、Trojan、VMess、VLESS 节点以及 best-effort Hysteria2 / TUIC 节点、节点分组和规则集渲染为 Shadowrocket 的 `[General]`、`[Proxy]`、`[Proxy Group]`、`[Rule]` 分段文本。
+
 ## 兼容性设计
 
 项目保留了一层“空存储回退默认配置”的兼容逻辑，集中在 `service/generated.go` 和 `convert/singbox/device_management_defaults.go`：
@@ -149,6 +156,6 @@ React SPA
 - `cmd/server/main.go` 在 `DATABASE_URL` 分支中固定使用 PostgreSQL 驱动；虽然 `go.mod` 已引入 MySQL 依赖，当前启动入口并未暴露对应切换逻辑
 - 管理端当前是单管理员模型，不包含多用户和 RBAC
 - 前端是单页菜单切换，不使用前端路由系统
-- 订阅协议解码当前启用 `ss`、`trojan`、`vmess`，`ssr` 解码器存在实现与测试，但未在 `convertMap` 中启用
+- 订阅协议解码当前启用 `ss`、`ssr`、`trojan`、`vmess`、`vless`；Hysteria2 / TUIC 可通过手工 Outbound JSON 进入 Shadowrocket best-effort 输出
 
 这些限制不影响项目主链路，但在后续架构演进时需要优先处理。

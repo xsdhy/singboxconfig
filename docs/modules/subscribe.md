@@ -2,7 +2,7 @@
 
 ## 模块职责
 
-订阅管理负责维护远程节点订阅源，并在配置生成时把订阅内容转换为统一 `entity.SingBoxOut` / `entity.Outbound`。这些缓存节点既可进入 sing-box JSON，也可被 Surge 输出链路继续渲染。它覆盖两部分能力：
+订阅管理负责维护远程节点订阅源，并在配置生成时把订阅内容转换为统一 `entity.SingBoxOut` / `entity.Outbound`。这些缓存节点既可进入 sing-box JSON，也可被 Surge / Shadowrocket 输出链路继续渲染。它覆盖两部分能力：
 
 - 管理端 CRUD：增删改查订阅源
 - 生成端解析：拉取远程文本、拆分节点 URL、调用协议解码器转换为统一出站
@@ -44,7 +44,7 @@
 
 ## 配置生成中的处理流程
 
-生成接口 `/open/generate/:device?token=...` 与 `/open/surge/:device?token=...` 都会调用 `resolveGenerateOutbounds()`，订阅处理流程如下：
+生成接口 `/open/generate/:device?token=...`、`/open/surge/:device?token=...` 与 `/open/shadowrocket/:device?token=...` 都会调用 `resolveGenerateOutbounds()`，订阅处理流程如下：
 
 1. 读取全部订阅
 2. 收集禁用（`status=false`）或对当前设备不可见的订阅名称集合
@@ -82,12 +82,12 @@ HTTP 拉取逻辑位于 `service/outbound_cache.go`：
 
 ## 当前支持范围与限制
 
-代码现状需要明确区分“解码器存在”和“生成链路已接通”：
+代码现状需要明确区分“订阅解析已接入”和“某个客户端输出格式是否支持”：
 
-- 已接入生成链路：`ss`、`trojan`、`vmess`、`vless`
-- 已实现解码器但当前未接入生成链路：`ssr`
-
-也就是说，`protocol/ssr.go` 可以单独解析 SSR URL，但 `convertMap` 当前注释掉了 `ssr`，因此 SSR 节点不会出现在生成结果中。
+- 已接入订阅解析链路：`ss`、`ssr`、`trojan`、`vmess`、`vless`
+- sing-box 输出会保留这些统一 Outbound
+- Surge 输出不导出 SSR / VLESS，会跳过并记录 warning
+- Shadowrocket 输出会导出 SSR / VLESS，因此能覆盖比 Surge 更完整的订阅节点
 
 另外还有几个实现边界：
 

@@ -109,6 +109,7 @@ func SetupRouter(service *service.Service) *gin.Engine {
 
 	r.GET("/open/generate/:device", service.Generated)
 	r.GET("/open/surge/:device", service.SurgeGenerated)
+	r.GET("/open/shadowrocket/:device", service.ShadowrocketGenerated)
 	r.GET("/open/ruleset/:tag", service.GetRuleSetByTag)
 	r.GET("/", func(c *gin.Context) { c.Data(http.StatusOK, "text/html; charset=utf-8", indexHTML) })
 

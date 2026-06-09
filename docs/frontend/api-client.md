@@ -110,9 +110,10 @@ formData.append('file', file);
 
 - `/open/generate/:device`
 - `/open/surge/:device`
+- `/open/shadowrocket/:device`
 - `/open/ruleset/:tag`
 
-设备页展示的 sing-box 与 Surge 订阅链接由页面根据设备 `code` 和 `token` 直接拼接，不经过 Axios client。
+设备页展示的 sing-box、Surge 与 Shadowrocket 订阅链接由页面根据设备 `code` 和 `token` 直接拼接，不经过 Axios client。
 
 ## 建议的扩展方向
 

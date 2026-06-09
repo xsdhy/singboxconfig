@@ -17,11 +17,27 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-var subscriptionOutboundConvertMap = map[string]func(string) (*entity.SingBoxOut, error){
-	"ss":     protocol.DecodeSSURLToSingBox,
-	"trojan": protocol.DecodeTrojanUrlToSingBox,
-	"vmess":  protocol.DecodeVmessUrlToSingBox,
-	"vless":  protocol.DecodeVlessUrlToSingBox,
+type subscriptionURLScheme string
+
+const (
+	// subscriptionURLSchemeSS 表示订阅中的 Shadowsocks 节点链接协议头。
+	subscriptionURLSchemeSS subscriptionURLScheme = "ss"
+	// subscriptionURLSchemeSSR 表示订阅中的 ShadowsocksR 节点链接协议头。
+	subscriptionURLSchemeSSR subscriptionURLScheme = "ssr"
+	// subscriptionURLSchemeTrojan 表示订阅中的 Trojan 节点链接协议头。
+	subscriptionURLSchemeTrojan subscriptionURLScheme = "trojan"
+	// subscriptionURLSchemeVMess 表示订阅中的 VMess 节点链接协议头。
+	subscriptionURLSchemeVMess subscriptionURLScheme = "vmess"
+	// subscriptionURLSchemeVLESS 表示订阅中的 VLESS 节点链接协议头。
+	subscriptionURLSchemeVLESS subscriptionURLScheme = "vless"
+)
+
+var subscriptionOutboundConvertMap = map[subscriptionURLScheme]func(string) (*entity.SingBoxOut, error){
+	subscriptionURLSchemeSS:     protocol.DecodeSSURLToSingBox,
+	subscriptionURLSchemeSSR:    protocol.DecodeSSRURLToSingBox,
+	subscriptionURLSchemeTrojan: protocol.DecodeTrojanUrlToSingBox,
+	subscriptionURLSchemeVMess:  protocol.DecodeVmessUrlToSingBox,
+	subscriptionURLSchemeVLESS:  protocol.DecodeVlessUrlToSingBox,
 }
 
 // subscriptionRefreshResult 记录一次手动刷新前后的差异，供 API 直接返回。
@@ -216,7 +232,7 @@ func parseSubscriptionOutbounds(httpContent []byte) ([]entity.SingBoxOut, error)
 		if !strings.Contains(line, "://") {
 			continue
 		}
-		protocolName := strings.SplitN(line, "://", 2)[0]
+		protocolName := subscriptionURLScheme(strings.SplitN(line, "://", 2)[0])
 		decodeFunc, ok := subscriptionOutboundConvertMap[protocolName]
 		if !ok {
 			continue

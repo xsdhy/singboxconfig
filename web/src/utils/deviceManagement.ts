@@ -1,8 +1,31 @@
 import type { DeviceInbound } from '../types';
 
+export type DeviceConfigOutputType = 'singbox' | 'surge' | 'shadowrocket';
+
+export interface DeviceConfigOutputMeta {
+  endpoint: string;
+  label: string;
+}
+
+export const DEVICE_CONFIG_OUTPUTS: Record<DeviceConfigOutputType, DeviceConfigOutputMeta> = {
+  singbox: { endpoint: 'generate', label: 'sing-box' },
+  surge: { endpoint: 'surge', label: 'Surge' },
+  shadowrocket: { endpoint: 'shadowrocket', label: 'Shadowrocket' },
+};
+
 export interface DeviceInboundSelectionState {
   selectedTags: string[];
   sortByTag: Record<string, number>;
+}
+
+/**
+ * buildDeviceConfigURL 根据设备和客户端输出类型构造公开订阅链接。
+ */
+export function buildDeviceConfigURL(record: { code: string; token: string }, outputType: DeviceConfigOutputType, origin: string): string {
+  const output = DEVICE_CONFIG_OUTPUTS[outputType];
+  const url = new URL(`/open/${output.endpoint}/${encodeURIComponent(record.code)}`, origin);
+  url.searchParams.set('token', record.token);
+  return url.toString();
 }
 
 /**

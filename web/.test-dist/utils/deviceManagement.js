@@ -1,3 +1,17 @@
+export const DEVICE_CONFIG_OUTPUTS = {
+    singbox: { endpoint: 'generate', label: 'sing-box' },
+    surge: { endpoint: 'surge', label: 'Surge' },
+    shadowrocket: { endpoint: 'shadowrocket', label: 'Shadowrocket' },
+};
+/**
+ * buildDeviceConfigURL 根据设备和客户端输出类型构造公开订阅链接。
+ */
+export function buildDeviceConfigURL(record, outputType, origin) {
+    const output = DEVICE_CONFIG_OUTPUTS[outputType];
+    const url = new URL(`/open/${output.endpoint}/${encodeURIComponent(record.code)}`, origin);
+    url.searchParams.set('token', record.token);
+    return url.toString();
+}
 /**
  * buildDeviceInboundSelection 把后端绑定列表转换成前端表单可直接使用的状态。
  */

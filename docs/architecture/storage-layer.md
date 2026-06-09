@@ -75,7 +75,7 @@ type Storage interface {
 存储层对外统一使用 `entity/` 下的实体，而不是暴露数据库模型或 HTTP DTO。这样有几个直接效果：
 
 - `service/` 与具体存储方式解耦
-- `convert/singbox/` 与 `convert/surge/` 可以直接消费服务层取出的实体
+- `convert/singbox/`、`convert/surge/` 与 `convert/shadowrocket/` 可以直接消费服务层取出的实体
 - 导入导出可以直接复用实体结构
 
 例如：

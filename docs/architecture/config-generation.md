@@ -14,9 +14,12 @@ GET /open/generate/:device?token=...
 
 ```text
 GET /open/surge/:device?token=...
+GET /open/shadowrocket/:device?token=...
 ```
 
 Surge 输出复用同一套设备解析、token 鉴权、DNS 读取、订阅缓存刷新、Outbound 可见性过滤、节点分组筛选和规则集过滤，最后由 `convert/surge` 渲染为 INI 风格文本。它不导出 Inbound 与 WireGuard endpoint。
+
+Shadowrocket 输出同样复用这套数据层能力，最后由 `convert/shadowrocket` 渲染为 INI 风格文本。相比 Surge，它额外覆盖 ShadowsocksR、VLESS，并对 Hysteria2、TUIC 做 best-effort 映射；第一版同样不导出 Inbound 与 WireGuard endpoint。
 
 这个流程不是简单地“读数据库后原样返回”，而是一个逐步组装过程：
 
@@ -323,6 +326,16 @@ Surge 渲染规则：
 
 - `[General]` 从 sing-box DNS server 中提取上游地址，跳过 `rcode://` 这类非上游地址
 - `[Proxy]` 导出 Shadowsocks、Trojan、VMess；不支持或关键字段缺失的节点跳过并记录 warning
+- `[Proxy Group]` 复用同一份 include / exclude 筛选逻辑，且只引用已成功导出的代理名称
+- `[Rule]` 对 remote 规则集输出 `RULE-SET,<url>,<outbound>`，对本地规则集展开常见域名、CIDR、GEOIP 规则，最后追加 `FINAL,general`
+
+Shadowrocket 输出入口 `ShadowrocketGenerated` 与 Surge 一样复用前面的致命错误处理和 `resolveGenerateOutbounds(ctx, deviceCode)`，不组装 sing-box 专属的 Inbound、Endpoint、Experimental。它读取 `ListNodeGroups()` 和 `ListRuleSets()` 后调用 `shadowrocket.Render(...)`，通过 `text/plain` 返回包含 `[General]`、`[Proxy]`、`[Proxy Group]`、`[Rule]` 的配置文本。
+
+Shadowrocket 渲染规则：
+
+- `[General]` 从 sing-box DNS server 中提取上游地址，跳过 `rcode://` 这类非上游地址
+- `[Proxy]` 导出 Shadowsocks、ShadowsocksR、Trojan、VMess、VLESS；Hysteria2 和 TUIC 依据现有字段 best-effort 映射
+- Hysteria v1 等当前未导出的协议会跳过并记录 warning
 - `[Proxy Group]` 复用同一份 include / exclude 筛选逻辑，且只引用已成功导出的代理名称
 - `[Rule]` 对 remote 规则集输出 `RULE-SET,<url>,<outbound>`，对本地规则集展开常见域名、CIDR、GEOIP 规则，最后追加 `FINAL,general`
 

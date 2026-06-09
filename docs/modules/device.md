@@ -63,6 +63,7 @@
 
 - `GET /open/generate/:device?token=...`：输出 sing-box JSON
 - `GET /open/surge/:device?token=...`：输出 Surge 配置文本
+- `GET /open/shadowrocket/:device?token=...`：输出 Shadowrocket 配置文本
 
 处理顺序：
 
@@ -72,7 +73,7 @@
 4. 若 `token` 不匹配，返回 `401`
 5. 认证通过后继续组装对应格式需要的数据
 
-Surge 输出与 sing-box 输出共享设备鉴权和 Outbound 解析链路，但第一版不导出 Inbound 与 WireGuard endpoint。
+Surge / Shadowrocket 输出与 sing-box 输出共享设备鉴权和 Outbound 解析链路，但第一版不导出 Inbound 与 WireGuard endpoint。
 
 因此设备对象既承担身份识别，也承担配置个性化参数承载。
 

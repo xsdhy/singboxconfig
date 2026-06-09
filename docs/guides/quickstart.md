@@ -137,6 +137,12 @@ Surge 客户端可使用平行的公开接口：
 curl "http://localhost:7391/open/surge/default?token=996007"
 ```
 
+Shadowrocket 客户端可使用另一条平行的公开接口：
+
+```bash
+curl "http://localhost:7391/open/shadowrocket/default?token=996007"
+```
+
 ## 常见启动问题
 
 ### 登录页能打开，但接口返回 401

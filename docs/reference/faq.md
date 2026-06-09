@@ -11,6 +11,7 @@
 - 管理台：`/api/admin`
 - sing-box 公开生成接口：`/open/generate/:device`
 - Surge 公开生成接口：`/open/surge/:device`
+- Shadowrocket 公开生成接口：`/open/shadowrocket/:device`
 
 ## 为什么管理台能打开，但接口提示未认证
 
@@ -112,22 +113,26 @@
 
 - 生成链路在解析失败时会记录警告并回退到默认 DNS，而不是直接报错
 
-## 为什么 Surge 配置里缺少部分节点
+## 为什么某个客户端配置里缺少部分节点
 
 可能原因：
 
 - Surge 输出第一版只导出 Shadowsocks、Trojan 和 best-effort VMess
 - VLESS、Hysteria、Hysteria2、TUIC 等协议会被跳过并记录 warning
+- Shadowrocket 输出会额外导出 SSR / VLESS，并对 Hysteria2 / TUIC 做 best-effort 映射
+- Hysteria v1 等当前未导出的协议仍会跳过并记录 warning
 - 某个节点缺少必要字段，例如 `server`、`server_port`、密码或 UUID
 
-这类问题只影响单个节点，不会中断整个 Surge 配置生成。
+这类问题只影响单个节点，不会中断整份客户端配置生成。
 
-## 为什么订阅里配置了 SSR 但生成结果没有节点
+## 为什么订阅里配置了 SSR 但 Surge 配置没有节点
 
 原因：
 
-- `protocol/ssr.go` 虽然存在解码器实现
-- 但当前订阅解析映射没有注册 `ssr`
+- 当前订阅解析链路已经接入 `ssr`
+- sing-box 输出会保留 SSR 出站
+- Shadowrocket 输出会导出 SSR 节点
+- Surge 不支持 SSR，因此 Surge 输出会跳过并记录 warning
 
 ## 数据持久化要求
 

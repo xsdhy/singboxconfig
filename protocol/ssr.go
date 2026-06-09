@@ -195,7 +195,7 @@ func ConvertSSRToSingBox(item *SSRNode) (*entity.SingBoxOut, error) {
 	}
 
 	return &entity.SingBoxOut{
-		Type:          "shadowsocksr",
+		Type:          string(entity.OutboundProtocolShadowsocksR),
 		Tag:           cleanTag(item.Tag),
 		Server:        item.Server,
 		ServerPort:    item.Port,

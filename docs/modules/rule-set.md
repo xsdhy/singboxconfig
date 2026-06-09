@@ -2,7 +2,7 @@
 
 ## 模块职责
 
-规则集管理负责维护规则内容和命中后的出站策略。sing-box 输出会把它转换为 `route.rule_set` 与 `route.rules`，Surge 输出会把它转换为 `[Rule]` 段中的 `RULE-SET` 或展开后的规则行。
+规则集管理负责维护规则内容和命中后的出站策略。sing-box 输出会把它转换为 `route.rule_set` 与 `route.rules`，Surge / Shadowrocket 输出会把它转换为 `[Rule]` 段中的 `RULE-SET` 或展开后的规则行。
 
 代码入口：
 
@@ -10,6 +10,7 @@
 - 管理接口：`service/service.go`
 - sing-box 生成转换：`convert/singbox/route.go`
 - Surge 生成转换：`convert/surge/surge.go`
+- Shadowrocket 生成转换：`convert/shadowrocket/shadowrocket.go`
 
 ## 数据模型
 
@@ -66,12 +67,12 @@
 - 再按 `sort` 升序遍历规则集
 - 每条规则集追加一条 `{"rule_set":[tag], "outbound": outbound}`
 
-## 生成到 Surge 的方式
+## 生成到 Surge / Shadowrocket 的方式
 
-`convert/surge.Render()` 会把规则集输出到 `[Rule]` 段：
+`convert/surge.Render()` 和 `convert/shadowrocket.Render()` 会把规则集输出到 `[Rule]` 段：
 
 - `ruleSetType == "remote"`：输出 `RULE-SET,<url>,<outbound>`
-- `local` / `inline`：解析 `content` 中常见的 `domain`、`domain_suffix`、`domain_keyword`、`domain_regex`、`ip_cidr`、`geoip` 字段，并展开为 Surge 规则行
+- `local` / `inline`：解析 `content` 中常见的 `domain`、`domain_suffix`、`domain_keyword`、`domain_regex`、`ip_cidr`、`geoip` 字段，并展开为对应客户端的规则行
 - 非法本地 JSON 会跳过并记录 warning，不中断整体配置生成
 - 最后固定追加 `FINAL,general`
 

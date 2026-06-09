@@ -9,7 +9,8 @@ singboxconfig/
 ├── convert/
 │   ├── common/                 # 多输出格式共享的纯转换辅助逻辑
 │   ├── singbox/                # 将业务实体转换为 sing-box 配置
-│   └── surge/                  # 将业务实体转换为 Surge 配置
+│   ├── surge/                  # 将业务实体转换为 Surge 配置
+│   └── shadowrocket/           # 将业务实体转换为 Shadowrocket 配置
 ├── docs/                       # 当前文档中心
 ├── entity/                     # 领域实体与 sing-box 输出结构
 ├── protocol/                   # 订阅协议 URL 解码器
@@ -42,7 +43,7 @@ singboxconfig/
 服务层负责 HTTP 请求编排，是后端的核心应用层。主要文件：
 
 - `service.go`：订阅、节点分组、规则集、全局设置等基础 CRUD
-- `generated.go`：开放配置生成接口，是最关键的运行时主流程，包含 sing-box 与 Surge 两条输出入口
+- `generated.go`：开放配置生成接口，是最关键的运行时主流程，包含 sing-box、Surge 与 Shadowrocket 三条输出入口
 - `device_management.go`：设备、Inbound、WireGuard、额外出站等管理接口
 - `config_transfer.go`：导入导出、默认数据初始化、导入摘要统计
 
@@ -50,7 +51,7 @@ singboxconfig/
 
 - 做 JSON 绑定和路径参数校验
 - 调用 `storage` 获取或写入实体
-- 调用 `convert/singbox` 或 `convert/surge` 组装最终配置
+- 调用 `convert/singbox`、`convert/surge` 或 `convert/shadowrocket` 组装最终配置
 
 ### `storage/`
 
@@ -95,15 +96,21 @@ singboxconfig/
 
 第一版不导出 Inbound 与 WireGuard endpoint，协议上完整映射 Shadowsocks / Trojan，VMess 做 best-effort，VLESS / Hysteria / Hysteria2 / TUIC 等不支持协议会跳过并记录 warning。
 
+### `convert/shadowrocket/`
+
+把同一批业务实体转换为 Shadowrocket INI 风格配置。它复用服务层已经解析出的 DNS、Outbound、节点分组和规则集，输出 `[General]`、`[Proxy]`、`[Proxy Group]`、`[Rule]` 四类段落。
+
+第一版不导出 Inbound 与 WireGuard endpoint，协议上完整映射 Shadowsocks / ShadowsocksR / Trojan / VMess / VLESS，Hysteria2 / TUIC 做 best-effort，Hysteria v1 等当前未导出的协议会跳过并记录 warning。
+
 ### `convert/common/`
 
-多输出格式共享的转换辅助逻辑。当前主要承载节点分组 include / exclude 关键字筛选，避免 sing-box 与 Surge 两条输出链路各自复制规则。
+多输出格式共享的转换辅助逻辑。当前主要承载节点分组 include / exclude 关键字筛选，避免 sing-box、Surge 与 Shadowrocket 输出链路各自复制规则。
 
 ### `convert/clashx/` (预留)
 
 该目录目前为空，作为未来扩展预留。设计意图是将业务实体转换为 Clash 配置格式。
 
-当前项目已支持 sing-box 与 Surge 配置输出，Clash 格式转换尚在规划阶段。
+当前项目已支持 sing-box、Surge 与 Shadowrocket 配置输出，Clash 格式转换尚在规划阶段。
 
 ### `protocol/`
 
@@ -112,7 +119,7 @@ singboxconfig/
 - 输入：单条订阅 URL
 - 输出：`entity.SingBoxOut`
 
-当前包含 SS、SSR、Trojan、VMess 的解析与测试。
+当前包含 SS、SSR、Trojan、VMess、VLESS 的解析与测试。
 
 ### `transfer/`
 
@@ -211,6 +218,7 @@ TypeScript 类型定义，与后端实体结构保持基本对应。
 
 - `convert/singbox/*_test.go`
 - `convert/surge/*_test.go`
+- `convert/shadowrocket/*_test.go`
 - `service/*_test.go`
 - `storage/*_test.go`
 - `protocol/*_test.go`

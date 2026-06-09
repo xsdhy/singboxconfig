@@ -2,7 +2,7 @@
 
 ## 模块职责
 
-节点分组负责把“订阅解析得到的原始节点标签”组织成策略分组。它本身不保存节点，只保存筛选规则和分组类型；生成时可分别渲染为 sing-box 出站组或 Surge Proxy Group。
+节点分组负责把“订阅解析得到的原始节点标签”组织成策略分组。它本身不保存节点，只保存筛选规则和分组类型；生成时可分别渲染为 sing-box 出站组或 Surge / Shadowrocket Proxy Group。
 
 代码入口：
 
@@ -11,6 +11,7 @@
 - 共享筛选：`convert/common/group.go`
 - sing-box 生成转换：`convert/singbox/outbound.go`
 - Surge 生成转换：`convert/surge/surge.go`
+- Shadowrocket 生成转换：`convert/shadowrocket/shadowrocket.go`
 
 ## 数据模型
 
@@ -38,7 +39,7 @@
 
 ## 生成逻辑
 
-生成时，`resolveGenerateOutbounds()` 会先得到当前设备可见的统一 Outbound。sing-box 输出由 `convert/singbox.GetOutbounds()` 组装 selector / urltest 出站；Surge 输出由 `convert/surge.Render()` 组装 select / url-test Proxy Group。
+生成时，`resolveGenerateOutbounds()` 会先得到当前设备可见的统一 Outbound。sing-box 输出由 `convert/singbox.GetOutbounds()` 组装 selector / urltest 出站；Surge 输出由 `convert/surge.Render()` 组装 select / url-test Proxy Group；Shadowrocket 输出由 `convert/shadowrocket.Render()` 组装同结构 Proxy Group。
 
 处理顺序：
 
@@ -83,12 +84,12 @@
 
 适合自动测速和自动选择出口的场景。
 
-Surge 输出中会映射为：
+Surge / Shadowrocket 输出中会映射为：
 
 - `selector` / `select` -> `select`
 - `urltest` -> `url-test`
 
-Surge Proxy Group 只引用 `[Proxy]` 中已成功导出的节点，避免不支持协议被跳过后产生悬空成员。
+Surge / Shadowrocket Proxy Group 只引用 `[Proxy]` 中已成功导出的节点，避免不支持协议被跳过后产生悬空成员。
 
 ## 与其他模块的关系
 
