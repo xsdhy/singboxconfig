@@ -173,7 +173,7 @@ func (s *Service) resolveGenerateOutbounds(ctx context.Context, deviceCode strin
 	if err != nil {
 		return nil, err
 	}
-	return singbox.GetOutbounds(singbox.GetExtraOutbounds(deviceCode, items), groupRules), nil
+	return singbox.GetOutbounds(singbox.GetExtraOutbounds(deviceCode, items), groupRules, deviceCode), nil
 }
 
 func (s *Service) fetchSubscriptionOutbounds(ctx context.Context, subscribe *entity.Subscribe) ([]*entity.Outbound, time.Time, error) {

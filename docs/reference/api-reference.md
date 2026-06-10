@@ -211,6 +211,7 @@
 - `testURL`
 - `include`
 - `exclude`
+- `deviceTypeOverrides`：设备级分组类型覆盖规则，逗号分隔的 `设备编码:分组类型` 列表（如 `phone:selector,gateway:urltest`）；未配置覆盖的设备使用 `groupType` 默认类型。
 
 ### 规则集
 

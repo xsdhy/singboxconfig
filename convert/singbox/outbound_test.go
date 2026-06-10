@@ -11,6 +11,7 @@ func TestOutboundGroup(t *testing.T) {
 		name       string
 		groupRules []*entity.NodeGroup
 		tags       []string
+		deviceCode string
 		want       []entity.SingBoxOut
 	}{
 		{
@@ -65,13 +66,106 @@ func TestOutboundGroup(t *testing.T) {
 			tags: []string{"美国01", "美国02"},
 			want: []entity.SingBoxOut{},
 		},
+		{
+			name: "设备覆盖为 urltest",
+			groupRules: []*entity.NodeGroup{
+				{
+					Tag:                 "general",
+					GroupType:           "selector",
+					Include:             "香港",
+					DeviceTypeOverrides: "gateway:urltest",
+				},
+			},
+			tags:       []string{"香港01", "香港02"},
+			deviceCode: "gateway",
+			want: []entity.SingBoxOut{
+				{
+					Tag:       "general",
+					Type:      "urltest",
+					Outbounds: []string{"香港01", "香港02"},
+					URL:       "https://www.gstatic.com/generate_204",
+					Interval:  "10m",
+					Tolerance: 50,
+				},
+			},
+		},
+		{
+			name: "未命中设备回退默认 selector",
+			groupRules: []*entity.NodeGroup{
+				{
+					Tag:                 "general",
+					GroupType:           "selector",
+					Include:             "香港",
+					DeviceTypeOverrides: "gateway:urltest",
+				},
+			},
+			tags:       []string{"香港01", "香港02"},
+			deviceCode: "phone",
+			want: []entity.SingBoxOut{
+				{
+					Tag:       "general",
+					Type:      "selector",
+					Outbounds: []string{"香港01", "香港02"},
+					Default:   "香港01",
+				},
+			},
+		},
+		{
+			name: "默认 select 规范化为 selector",
+			groupRules: []*entity.NodeGroup{
+				{
+					Tag:       "general",
+					GroupType: "select",
+					Include:   "香港",
+				},
+			},
+			tags:       []string{"香港01"},
+			deviceCode: "phone",
+			want: []entity.SingBoxOut{
+				{
+					Tag:       "general",
+					Type:      "selector",
+					Outbounds: []string{"香港01"},
+					Default:   "香港01",
+				},
+			},
+		},
+		{
+			name: "设备覆盖为 urltest 且 testURL 为空使用默认地址且不回写原始值",
+			groupRules: []*entity.NodeGroup{
+				{
+					Tag:                 "general",
+					GroupType:           "selector",
+					Include:             "香港",
+					DeviceTypeOverrides: "gateway:urltest",
+				},
+			},
+			tags:       []string{"香港01"},
+			deviceCode: "gateway",
+			want: []entity.SingBoxOut{
+				{
+					Tag:       "general",
+					Type:      "urltest",
+					Outbounds: []string{"香港01"},
+					URL:       "https://www.gstatic.com/generate_204",
+					Interval:  "10m",
+					Tolerance: 50,
+				},
+			},
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := constructOutboundGroup(tt.groupRules, tt.tags)
+			got := constructOutboundGroup(tt.groupRules, tt.tags, tt.deviceCode)
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("OutboundGroup() = %v, want %v", got, tt.want)
+			}
+			// 校验转换过程不会回写修改原始 NodeGroup.TestURL。
+			for _, rule := range tt.groupRules {
+				if rule.TestURL != "" {
+					t.Errorf("constructOutboundGroup 不应修改原始 TestURL，got=%q", rule.TestURL)
+				}
 			}
 		})
 	}

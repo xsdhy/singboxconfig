@@ -72,33 +72,36 @@ func supabaseSubscribeFromEntity(e *entity.Subscribe) *supabaseSubscribe {
 }
 
 type supabaseNodeGroup struct {
-	Tag       string `json:"tag"`
-	Name      string `json:"name"`
-	GroupType string `json:"group_type"`
-	TestURL   string `json:"test_url"`
-	Include   string `json:"include"`
-	Exclude   string `json:"exclude"`
+	Tag                 string `json:"tag"`
+	Name                string `json:"name"`
+	GroupType           string `json:"group_type"`
+	TestURL             string `json:"test_url"`
+	Include             string `json:"include"`
+	Exclude             string `json:"exclude"`
+	DeviceTypeOverrides string `json:"device_type_overrides"`
 }
 
 func (s *supabaseNodeGroup) toEntity() *entity.NodeGroup {
 	return &entity.NodeGroup{
-		Tag:       s.Tag,
-		Name:      s.Name,
-		GroupType: s.GroupType,
-		TestURL:   s.TestURL,
-		Include:   s.Include,
-		Exclude:   s.Exclude,
+		Tag:                 s.Tag,
+		Name:                s.Name,
+		GroupType:           s.GroupType,
+		TestURL:             s.TestURL,
+		Include:             s.Include,
+		Exclude:             s.Exclude,
+		DeviceTypeOverrides: s.DeviceTypeOverrides,
 	}
 }
 
 func supabaseNodeGroupFromEntity(e *entity.NodeGroup) *supabaseNodeGroup {
 	return &supabaseNodeGroup{
-		Tag:       e.Tag,
-		Name:      e.Name,
-		GroupType: e.GroupType,
-		TestURL:   e.TestURL,
-		Include:   e.Include,
-		Exclude:   e.Exclude,
+		Tag:                 e.Tag,
+		Name:                e.Name,
+		GroupType:           e.GroupType,
+		TestURL:             e.TestURL,
+		Include:             e.Include,
+		Exclude:             e.Exclude,
+		DeviceTypeOverrides: e.DeviceTypeOverrides,
 	}
 }
 

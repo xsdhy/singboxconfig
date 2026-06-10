@@ -4,6 +4,28 @@ import type { NodeGroup } from '../types';
 const { Row, Col } = Grid;
 const { Title, Text } = Typography;
 
+// deviceOverrideItem 表示一条解析后的设备级类型覆盖规则，用于列表卡片展示。
+interface deviceOverrideItem {
+  deviceCode: string; // 设备编码。
+  groupType: string; // 目标分组类型（selector / urltest）。
+}
+
+// parseOverrides 把后端的规则字符串解析为展示用数组，解析规则与后端 ParseDeviceTypeOverrides 对齐：
+// 逗号分隔多条规则，第一个冒号分隔设备编码与类型，忽略空白与不合法项。
+function parseOverrides(raw?: string): deviceOverrideItem[] {
+  if (!raw || !raw.trim()) return [];
+  const items: deviceOverrideItem[] = [];
+  for (const rule of raw.split(',')) {
+    const idx = rule.indexOf(':');
+    if (idx < 0) continue;
+    const deviceCode = rule.slice(0, idx).trim();
+    const groupType = rule.slice(idx + 1).trim();
+    if (!deviceCode || !groupType) continue;
+    items.push({ deviceCode, groupType });
+  }
+  return items;
+}
+
 interface Props {
   data: NodeGroup[];
   deletingKey?: string | null;
@@ -17,7 +39,9 @@ export default function NodeGroupTable({ data, deletingKey, togglingKey, onEdit,
   return (
     <div style={{ marginBottom: 20 }}>
       <Row gutter={[16, 16]}>
-        {data.map((item) => (
+        {data.map((item) => {
+          const overrides = parseOverrides(item.deviceTypeOverrides);
+          return (
           <Col key={item.tag} xs={24} sm={12} lg={6}>
             <div className="glass-card">
               <div className="card-header" style={{ padding: '12px 16px 8px' }}>
@@ -57,6 +81,23 @@ export default function NodeGroupTable({ data, deletingKey, togglingKey, onEdit,
                       </div>
                     </div>
                   )}
+                  {overrides.length > 0 && (
+                    <div>
+                      <Text type="secondary" style={{ fontSize: 11 }}>设备级类型覆盖</Text>
+                      <div style={{ marginTop: 4, display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                        {overrides.map((o) => (
+                          <Tag
+                            key={o.deviceCode}
+                            size="small"
+                            color={o.groupType === 'urltest' ? 'arcoblue' : 'green'}
+                            style={{ fontSize: 11 }}
+                          >
+                            {o.deviceCode} → {o.groupType}
+                          </Tag>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </Space>
               </div>
               <div className="card-footer" style={{ padding: '8px 16px' }}>
@@ -76,7 +117,8 @@ export default function NodeGroupTable({ data, deletingKey, togglingKey, onEdit,
               </div>
             </div>
           </Col>
-        ))}
+          );
+        })}
       </Row>
     </div>
   );

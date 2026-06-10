@@ -19,12 +19,37 @@
 
 - `name`：后台展示名称
 - `tag`：配置内唯一标识，供路由规则和其他模块引用
-- `groupType`：当前主要使用 `selector` 或 `urltest`
+- `groupType`：当前主要使用 `selector` 或 `urltest`，作为未命中设备覆盖时的默认类型
 - `testURL`：仅 `urltest` 使用，留空时回退到默认探测地址
 - `include`：逗号分隔包含关键字
 - `exclude`：逗号分隔排除关键字
+- `deviceTypeOverrides`：设备级分组类型覆盖规则，详见下文“设备级类型覆盖”
 
 文档中的“分组”并不是静态成员列表，而是“按关键字动态筛选”的规则定义。
+
+## 设备级类型覆盖
+
+`deviceTypeOverrides` 允许“同一份分组定义，针对不同设备输出不同的分组类型”，以兼顾网关类设备的“省心自动测速”与终端设备的“灵活手动切换”两类场景。
+
+规则字符串格式：
+
+```text
+deviceCode:groupType,deviceCode:groupType
+```
+
+例如 `phone:selector,gateway:urltest` 表示设备 `gateway` 渲染为 `urltest`，设备 `phone` 渲染为 `selector`，其余设备使用默认 `groupType`。
+
+解析规则（实现见 `convert/common.ParseDeviceTypeOverrides` 与 `ResolveGroupType`）：
+
+- 以英文逗号 `,` 分隔多条覆盖规则；
+- 每条规则以第一个英文冒号 `:` 分隔设备编码与目标类型，两端空白会被去除；
+- 设备编码为空、目标类型为空、缺少冒号的规则直接忽略；
+- 目标类型只接受 `selector` / `select` / `urltest`，非法值忽略并回退默认类型；
+- `select` 兼容值会被规范化为 `selector`；
+- 同一设备编码多次出现时，后出现的规则覆盖先出现的规则；
+- 设备编码大小写敏感，不校验设备是否真实存在，避免删除设备后历史配置无法加载。
+
+生成时三种输出格式（sing-box / Surge / Shadowrocket）都通过 `common.ResolveGroupType(group, deviceCode)` 解析最终类型，保证类型关键字与 `url` / `interval` / `tolerance` 等参数来自同一次判定。未配置覆盖字段的旧数据行为与改动前完全一致。
 
 ## 管理接口
 
@@ -104,7 +129,7 @@ Surge / Shadowrocket Proxy Group 只引用 `[Proxy]` 中已成功导出的节点
 
 - 不支持正则、权重、优先级表达式等高级筛选能力
 - 不支持分组嵌套；筛选输入是“已有出站 tag 列表”
-- 不校验 `groupType` 合法性，非预期值会原样写入 `type`
+- `groupType` 与设备覆盖类型只接受 `selector` / `select` / `urltest`，非法值会被忽略并回退到默认类型（`select` 规范化为 `selector`）
 - 不做成员去重之外的质量校验；重复标签只按首次遇到顺序保留
 
 ## 适合更新本文档的场景

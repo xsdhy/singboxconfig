@@ -97,7 +97,7 @@ func Render(deviceCode string, outbounds []entity.SingBoxOut, endpoints []entity
 
 	proxyLines := renderProxySection(ctx, outbounds)
 	proxyLines = append(proxyLines, renderWireGuardProxyLines(ctx, endpoints)...)
-	groupLines := renderProxyGroupSection(ctx, groups)
+	groupLines := renderProxyGroupSection(ctx, deviceCode, groups)
 	ruleLines := renderRuleSection(ctx, deviceCode, ruleSets)
 	ctx.flushWarnings()
 
@@ -434,7 +434,7 @@ func appendVMessTransportParameters(parts *[]string, transport *entity.SingTrans
 	}
 }
 
-func renderProxyGroupSection(ctx *renderContext, groups []*entity.NodeGroup) []string {
+func renderProxyGroupSection(ctx *renderContext, deviceCode string, groups []*entity.NodeGroup) []string {
 	if len(groups) == 0 {
 		return nil
 	}
@@ -451,12 +451,16 @@ func renderProxyGroupSection(ctx *renderContext, groups []*entity.NodeGroup) []s
 		groupName := policyName(group.Tag)
 		ctx.groupNames[group.Tag] = groupName
 
+		// 按设备解析最终分组类型，确保 url-test 关键字与 url/interval/tolerance 参数基于同一次判定，
+		// 避免设备覆盖为 urltest 时类型变了但探测参数缺失。
+		groupType := common.ResolveGroupType(group, deviceCode)
+
 		lineMembers := make([]string, 0, len(members)+4)
-		lineMembers = append(lineMembers, groupName+" = "+string(resolveSurgeGroupType(group.GroupType)))
+		lineMembers = append(lineMembers, groupName+" = "+string(resolveSurgeGroupType(groupType)))
 		for _, tag := range members {
 			lineMembers = append(lineMembers, ctx.proxyNames[tag])
 		}
-		if entity.NodeGroupType(group.GroupType) == entity.NodeGroupTypeURLTest {
+		if groupType == entity.NodeGroupTypeURLTest {
 			testURL := strings.TrimSpace(group.TestURL)
 			if testURL == "" {
 				testURL = defaultURLTestURL
@@ -472,8 +476,8 @@ func exportedProxyTags(ctx *renderContext) []string {
 	return append([]string(nil), ctx.proxyTags...)
 }
 
-func resolveSurgeGroupType(groupType string) surgeGroupType {
-	if entity.NodeGroupType(groupType) == entity.NodeGroupTypeURLTest {
+func resolveSurgeGroupType(groupType entity.NodeGroupType) surgeGroupType {
+	if groupType == entity.NodeGroupTypeURLTest {
 		return surgeGroupURLTest
 	}
 	return surgeGroupSelect

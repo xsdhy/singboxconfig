@@ -20,6 +20,9 @@ export interface NodeGroup {
   include?: string; // 逗号分隔关键字。
   exclude?: string; // 逗号分隔关键字。
   testURL?: string; // urltest 可用性测试地址。
+  // deviceTypeOverrides 设备级分组类型覆盖规则，逗号分隔的 "设备编码:分组类型" 列表，
+  // 例如 "phone:selector,gateway:urltest"。未配置覆盖的设备使用 groupType 默认类型。
+  deviceTypeOverrides?: string;
 }
 
 // RuleSet 描述本地或远程规则集。

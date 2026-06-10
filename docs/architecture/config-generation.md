@@ -212,7 +212,7 @@ Shadowrocket 输出同样复用这套数据层能力，最后由 `convert/shadow
 
 ## 6. 构造节点分组出站
 
-最终候选项会先交给 `singbox.GetExtraOutbounds(deviceCode, items)` 做排序、过滤和 JSON 反序列化，再由 `GetOutbounds` 根据 `NodeGroup` 构造出站组。
+最终候选项会先交给 `singbox.GetExtraOutbounds(deviceCode, items)` 做排序、过滤和 JSON 反序列化，再由 `GetOutbounds(outbounds, groupRules, deviceCode)` 根据 `NodeGroup` 构造出站组。`deviceCode` 会一路透传到 `constructOutboundGroup`，用于做设备级分组类型判定（见 6.2）。
 
 ### 6.1 成员筛选
 
@@ -230,10 +230,12 @@ Shadowrocket 输出同样复用这套数据层能力，最后由 `convert/shadow
 - `selector`
 - `urltest`
 
+类型来源统一由 `convert/common.ResolveGroupType(group, deviceCode)` 判定：命中分组 `DeviceTypeOverrides` 中当前设备的覆盖规则时使用覆盖类型，否则回退到分组默认的 `GroupType`；返回值已规范化为 `selector` / `urltest`（兼容值 `select` 归一化为 `selector`）。这样“同一份分组定义可针对不同设备输出不同分组类型”，sing-box / Surge / Shadowrocket 三条输出链路共享同一判定逻辑。
+
 规则：
 
 - `selector` 的 `default` 设为第一个成员
-- `urltest` 默认测试地址为 `https://www.gstatic.com/generate_204`
+- `urltest` 默认测试地址为 `https://www.gstatic.com/generate_204`（用局部变量处理，不回写原始 `NodeGroup.TestURL`）
 - `urltest` 额外带 `interval=10m`、`tolerance=50`
 
 如果某分组筛选后没有成员，则该分组不会输出。

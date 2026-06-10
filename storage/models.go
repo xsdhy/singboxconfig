@@ -107,6 +107,10 @@ type DBNodeGroup struct {
 	// Exclude 排除关键字，逗号分隔，节点标签命中后会从候选节点中剔除
 	Exclude string `gorm:"type:text" json:"exclude"`
 
+	// DeviceTypeOverrides 设备级分组类型覆盖规则，逗号分隔的 "设备编码:分组类型" 列表，
+	// 例如 "phone:selector,gateway:urltest"。为空时所有设备都使用 GroupType 默认类型。
+	DeviceTypeOverrides string `gorm:"type:text" json:"deviceTypeOverrides"`
+
 	// CreatedAt 记录创建时间，由 GORM 自动管理
 	CreatedAt time.Time `gorm:"autoCreateTime" json:"createdAt"`
 
@@ -122,12 +126,13 @@ func (DBNodeGroup) TableName() string {
 // ToEntity 将数据库模型转换为业务实体
 func (db *DBNodeGroup) ToEntity() *entity.NodeGroup {
 	return &entity.NodeGroup{
-		Name:      db.Name,
-		Tag:       db.Tag,
-		GroupType: db.GroupType,
-		TestURL:   db.TestURL,
-		Include:   db.Include,
-		Exclude:   db.Exclude,
+		Name:                db.Name,
+		Tag:                 db.Tag,
+		GroupType:           db.GroupType,
+		TestURL:             db.TestURL,
+		Include:             db.Include,
+		Exclude:             db.Exclude,
+		DeviceTypeOverrides: db.DeviceTypeOverrides,
 	}
 }
 
@@ -139,6 +144,7 @@ func (db *DBNodeGroup) FromEntity(e *entity.NodeGroup) {
 	db.TestURL = e.TestURL
 	db.Include = e.Include
 	db.Exclude = e.Exclude
+	db.DeviceTypeOverrides = e.DeviceTypeOverrides
 }
 
 // DBRuleSet 规则集表数据库模型

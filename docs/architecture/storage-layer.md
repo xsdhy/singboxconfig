@@ -175,6 +175,18 @@ Supabase 的访问模式与 GORM 完全不同：
 - 请求序列化和错误处理更繁琐
 - 调试体验弱于本地数据库
 - 延迟和网络失败会直接暴露到应用层
+- 不会像 GORM `AutoMigrate` 那样自动建列：新增字段时需要手动在 Supabase 执行 DDL
+
+### Schema 变更须知
+
+`DatabaseStorage` 在启动时通过 `AutoMigrate` 自动新增列，而 `SupabaseStorage` 走 REST API 不做迁移，新增字段必须手动在 Supabase 加列。例如「节点分组设备级类型覆盖」需要：
+
+```sql
+ALTER TABLE node_groups
+  ADD COLUMN IF NOT EXISTS device_type_overrides text NOT NULL DEFAULT '';
+```
+
+旧行会回填空字符串，保持向后兼容（空字符串 = 无覆盖，所有设备使用默认 `group_type`）。
 
 ## 存储后端切换机制
 

@@ -14,4 +14,10 @@ type NodeGroup struct {
 	Include string `json:"include"`
 	// Exclude 是逗号分隔的排除关键字，命中后会从候选节点里剔除。
 	Exclude string `json:"exclude"`
+	// DeviceTypeOverrides 是设备级分组类型覆盖规则，可选。
+	// 格式为逗号分隔的 "设备编码:分组类型" 列表，例如 "phone:selector,gateway:urltest"。
+	// 命中当前设备的覆盖规则时使用对应类型，否则回退到 GroupType 默认值，
+	// 由此实现“同一份分组定义，针对不同设备输出不同分组类型”。
+	// 具体解析规则见 convert/common.ResolveGroupType / ParseDeviceTypeOverrides。
+	DeviceTypeOverrides string `json:"deviceTypeOverrides"`
 }
