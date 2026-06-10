@@ -11,6 +11,7 @@ export default defineConfig({
   server: {
     proxy: {
       '/api': 'http://localhost:7391',
+      //  '/api': 'http://outbound.xsdhy.com:7391',
     },
   },
 })
