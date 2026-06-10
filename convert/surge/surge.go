@@ -240,27 +240,26 @@ func wireGuardPeerLines(ctx *renderContext, endpoint entity.SingEndpointWireguar
 }
 
 // splitWireGuardAddresses 把 sing-box 的客户端地址列表拆成 IPv4 与 IPv6，
-// 取首个匹配项，地址可能携带 CIDR 前缀，Surge 的 self-ip 字段同样接受。
+// 取首个匹配项；Surge 的 self-ip 字段只接受纯 IP，需去掉 CIDR 前缀。
 func splitWireGuardAddresses(addresses []string) (string, string) {
 	var ipv4, ipv6 string
 	for _, addr := range addresses {
-		trimmed := strings.TrimSpace(addr)
-		if trimmed == "" {
+		host := strings.TrimSpace(addr)
+		if host == "" {
 			continue
 		}
-		host := trimmed
 		if idx := strings.Index(host, "/"); idx >= 0 {
 			host = host[:idx]
 		}
 		parsed := net.ParseIP(host)
 		if parsed != nil && parsed.To4() == nil {
 			if ipv6 == "" {
-				ipv6 = trimmed
+				ipv6 = host
 			}
 			continue
 		}
 		if ipv4 == "" {
-			ipv4 = trimmed
+			ipv4 = host
 		}
 	}
 	return ipv4, ipv6
