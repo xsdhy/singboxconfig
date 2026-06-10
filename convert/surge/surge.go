@@ -217,9 +217,15 @@ func wireGuardPeerLines(ctx *renderContext, endpoint entity.SingEndpointWireguar
 		if len(allowedIPs) == 0 {
 			allowedIPs = []string{"0.0.0.0/0", "::/0"}
 		}
+		// 多个 allowed-ips 用逗号拼接后，必须整体加引号，
+		// 否则内部逗号会被 Surge 当成 peer 字段分隔符而解析错误。
+		allowedValue := strings.Join(allowedIPs, ", ")
+		if len(allowedIPs) > 1 {
+			allowedValue = "\"" + allowedValue + "\""
+		}
 		fields := []string{
 			"public-key = " + peer.PublicKey,
-			"allowed-ips = " + strings.Join(allowedIPs, ", "),
+			"allowed-ips = " + allowedValue,
 			"endpoint = " + net.JoinHostPort(peer.Address, strconv.Itoa(peer.Port)),
 		}
 		if strings.TrimSpace(peer.PreSharedKey) != "" {

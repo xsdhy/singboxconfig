@@ -111,7 +111,7 @@ func TestRenderWireGuardEndpoints(t *testing.T) {
 	mustContain(t, cfg, "self-ip = 10.0.2.2/32")
 	mustContain(t, cfg, "self-ip-v6 = fd00:1111::11/128")
 	mustContain(t, cfg, "mtu = 1280")
-	mustContain(t, cfg, "peer = (public-key = peer-public-key, allowed-ips = 0.0.0.0/0, ::/0, endpoint = wg.example.com:51820, preshared-key = peer-psk, keepalive = 25)")
+	mustContain(t, cfg, "peer = (public-key = peer-public-key, allowed-ips = \"0.0.0.0/0, ::/0\", endpoint = wg.example.com:51820, preshared-key = peer-psk, keepalive = 25)")
 	mustContain(t, cfg, "general = select, ss-node, wg-node")
 }
 

@@ -137,6 +137,7 @@ WireGuard 在 sing-box 中存放于 `endpoints`（而非 `outbounds`），Surge 
 
 - 每个 endpoint 产出一条 `名称 = wireguard, section-name=<名称>` 的 `[Proxy]` 引用行
 - 同时输出一段独立的 `[WireGuard <名称>]` 配置：`private-key`、`self-ip` / `self-ip-v6`（按 IPv4 / IPv6 拆分客户端地址）、`mtu`、以及每个 `peer = (public-key=..., allowed-ips=..., endpoint=host:port, preshared-key=..., keepalive=...)`
+  - `allowed-ips` 含多个值（逗号分隔）时整体加引号，避免内部逗号被 Surge 当成 peer 字段分隔符
 - endpoint tag 注册进代理名集合，可被策略组与规则正常引用；缺少 tag / private-key / 可用 peer 时降级跳过并记录 warning
 
 ### IPv6 默认关闭
