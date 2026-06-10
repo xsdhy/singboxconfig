@@ -52,3 +52,32 @@ const (
 	// RuleSetTypeInline 表示内联规则集。
 	RuleSetTypeInline RuleSetType = "inline"
 )
+
+// Software 表示规则集 open 接口与生成链路支持的目标客户端软件。
+// 这些取值会同时出现在路由参数 :software、规则集 URL 路径段与各转换器分支中，
+// 因此统一定义为枚举，避免在不同层散落裸字符串。
+type Software string
+
+const (
+	// SoftwareSingbox 表示 sing-box 客户端，规则集输出为 source 格式 JSON。
+	SoftwareSingbox Software = "singbox"
+	// SoftwareSurge 表示 Surge 客户端，规则集输出为逐行 `类型,值` 文本。
+	SoftwareSurge Software = "surge"
+	// SoftwareShadowrocket 表示 Shadowrocket 客户端，规则集输出为逐行 `类型,值` 文本。
+	SoftwareShadowrocket Software = "shadowrocket"
+)
+
+// ParseSoftware 把请求参数解析为受支持的 Software 枚举。
+// 第二个返回值为 false 表示传入的是未知软件名，调用方应据此返回 400。
+func ParseSoftware(raw string) (Software, bool) {
+	switch Software(raw) {
+	case SoftwareSingbox:
+		return SoftwareSingbox, true
+	case SoftwareSurge:
+		return SoftwareSurge, true
+	case SoftwareShadowrocket:
+		return SoftwareShadowrocket, true
+	default:
+		return "", false
+	}
+}

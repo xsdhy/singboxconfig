@@ -79,10 +79,12 @@
 
 - 管理普通 key/value 全局配置
 - 新增、编辑、删除设置项
+- 页面顶部提供独立的「系统 Host」编辑入口（写入 `system_host`），保存前做 http/https 合法性校验、自动去尾斜杠
 
 注意：
 
 - DNS 页面虽然也使用全局设置存储，但不通过这个页面编辑，而是单独走 JSON 编辑器页面
+- 「系统 Host」用于把整份配置中的本地规则集改为远程规则集 URL 引用，详见[配置项说明](/Users/xsdhy/data/code/go/singboxconfig/docs/reference/configuration.md)
 
 ## 设备管理
 

@@ -64,6 +64,7 @@
 - `GET /open/generate/:device?token=...`：输出 sing-box JSON
 - `GET /open/surge/:device?token=...`：输出 Surge 配置文本
 - `GET /open/shadowrocket/:device?token=...`：输出 Shadowrocket 配置文本
+- `GET /open/rules/:tag/:software/:device?token=...`：输出单个规则集在目标软件下的规则内容（复用同一套设备解析与鉴权）
 
 处理顺序：
 
@@ -76,6 +77,8 @@
 Surge / Shadowrocket 输出与 sing-box 输出共享设备鉴权和 Outbound 解析链路，但第一版不导出 Inbound 与 WireGuard endpoint。
 
 因此设备对象既承担身份识别，也承担配置个性化参数承载。
+
+> **token 轮换影响规则集 URL**：配置全局设置 `system_host` 后，整份配置中的本地规则集会改为引用 `/open/rules/...?token=<device.Token>`。设备 `token` 修改后，旧整份配置里的规则集 URL 会随之失效，需要重新拉取整份配置。详见[规则集管理](./rule-set.md)。
 
 ## 空存储回退逻辑
 

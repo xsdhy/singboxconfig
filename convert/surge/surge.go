@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 	"singboxconfig/convert/common"
+	"singboxconfig/convert/ruleset"
 	"singboxconfig/entity"
 	"sort"
 	"strconv"
@@ -89,7 +90,10 @@ type renderContext struct {
 // Render 将统一中间数据渲染为 Surge INI 风格配置文本。
 // 入参全部来自现有生成链路：统一 Outbound、WireGuard endpoint、NodeGroup 与 RuleSet，
 // 函数内部只做纯转换，便于对协议映射、分组一致性和规则展开做单元测试。
-func Render(deviceCode string, outbounds []entity.SingBoxOut, endpoints []entity.SingEndpointWireguard, groups []*entity.NodeGroup, ruleSets []*entity.RuleSet) string {
+//
+// deviceToken 与 systemHost 用于把 local / inline 规则集改为单行 RULE-SET,<url>,<policy> 引用：
+// systemHost 非空且内容可解析时输出 URL 引用，否则回退到逐条展开，保证旧部署零配置可用。
+func Render(deviceCode string, deviceToken string, systemHost string, outbounds []entity.SingBoxOut, endpoints []entity.SingEndpointWireguard, groups []*entity.NodeGroup, ruleSets []*entity.RuleSet) string {
 	ctx := &renderContext{
 		proxyNames: make(map[string]string),
 		groupNames: make(map[string]string),
@@ -98,7 +102,7 @@ func Render(deviceCode string, outbounds []entity.SingBoxOut, endpoints []entity
 	proxyLines := renderProxySection(ctx, outbounds)
 	proxyLines = append(proxyLines, renderWireGuardProxyLines(ctx, endpoints)...)
 	groupLines := renderProxyGroupSection(ctx, deviceCode, groups)
-	ruleLines := renderRuleSection(ctx, deviceCode, ruleSets)
+	ruleLines := renderRuleSection(ctx, deviceCode, deviceToken, systemHost, ruleSets)
 	ctx.flushWarnings()
 
 	sections := [][]string{
@@ -483,7 +487,7 @@ func resolveSurgeGroupType(groupType entity.NodeGroupType) surgeGroupType {
 	return surgeGroupSelect
 }
 
-func renderRuleSection(ctx *renderContext, deviceCode string, ruleSets []*entity.RuleSet) []string {
+func renderRuleSection(ctx *renderContext, deviceCode string, deviceToken string, systemHost string, ruleSets []*entity.RuleSet) []string {
 	sorted := append([]*entity.RuleSet(nil), ruleSets...)
 	sort.Slice(sorted, func(i, j int) bool {
 		if sorted[i] == nil || sorted[j] == nil {
@@ -492,6 +496,7 @@ func renderRuleSection(ctx *renderContext, deviceCode string, ruleSets []*entity
 		return sorted[i].Sort < sorted[j].Sort
 	})
 
+	host := strings.TrimSpace(systemHost)
 	lines := make([]string, 0, len(sorted)+1)
 	for _, ruleSet := range sorted {
 		if ruleSet == nil || !isRuleSetVisibleForDevice(ruleSet, deviceCode) {
@@ -510,6 +515,17 @@ func renderRuleSection(ctx *renderContext, deviceCode string, ruleSets []*entity
 			}
 			lines = append(lines, strings.Join([]string{string(surgeRuleRuleSet), ruleSet.URL, policy}, ","))
 			continue
+		}
+
+		// local / inline：系统 Host 可用且内容可解析时，输出单行 RULE-SET,<url>,<policy> 引用本服务 open 接口。
+		if host != "" {
+			if _, _, err := ruleset.RenderLines(ruleSet.Content); err == nil {
+				rulesetURL := ruleset.BuildRuleSetURL(host, ruleSet.Tag, entity.SoftwareSurge, deviceCode, deviceToken)
+				lines = append(lines, strings.Join([]string{string(surgeRuleRuleSet), rulesetURL, policy}, ","))
+				continue
+			}
+			// 内容非法时不生成指向坏内容的 URL，回退到逐条展开（展开同样会跳过坏内容并记录 warning）。
+			ctx.warnf("Surge local ruleset content invalid, fallback to expand: tag=%s", ruleSet.Tag)
 		}
 		lines = append(lines, expandLocalRuleSet(ctx, ruleSet, policy)...)
 	}

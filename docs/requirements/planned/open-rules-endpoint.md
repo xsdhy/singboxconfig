@@ -1,6 +1,8 @@
 # 多客户端规则集输出接口（/open/rules）
 
-> 状态：计划中
+> 状态：已被取代（superseded）
+>
+> 本需求的路径设计已被 [规则集独立 open 接口 + 系统 Host 设置 + 生成时规则集改为 URL 引用](../implemented/ruleset-open-endpoint-and-url-reference.md)（已实现）合并并取代。该方案采用“规则集级 open 接口 + 设备 token 鉴权 + 生成时引用该接口”的完整设计，请以已实现文档为准。
 
 ## 背景
 

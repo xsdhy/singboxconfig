@@ -240,6 +240,14 @@ func (s *Service) CreateSetting(c *gin.Context) {
 		return
 	}
 
+	// 系统 Host 等特殊 key 需要在落库前做规范化与合法性校验，非法值直接拒绝。
+	normalizedValue, err := normalizeGlobalSettingValue(setting.Key, setting.Value)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	setting.Value = normalizedValue
+
 	if err := s.storage.SetGlobalSetting(setting.Key, setting.Value); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -271,6 +279,14 @@ func (s *Service) UpdateSetting(c *gin.Context) {
 		return
 	}
 	setting.Key = key
+
+	// 系统 Host 等特殊 key 需要在落库前做规范化与合法性校验，非法值直接拒绝。
+	normalizedValue, err := normalizeGlobalSettingValue(setting.Key, setting.Value)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	setting.Value = normalizedValue
 
 	if err := s.storage.SetGlobalSetting(setting.Key, setting.Value); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})

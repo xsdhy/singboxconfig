@@ -70,10 +70,17 @@ func (s *Service) Generated(c *gin.Context) {
 		return
 	}
 
+	// 读取系统 Host，用于把 local / inline 规则集改为指向本服务 open 接口的远程 URL 引用。
+	systemHost, err := s.resolveSystemHost()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
 	singBoxConfig := entity.SingBoxConfig{
 		DNS:          singbox.ResolveDNS(dnsConfigJSON),
 		Endpoints:    endpoints,
-		Route:        singbox.GetRoute(device.Code, ruleSets, outbounds),
+		Route:        singbox.GetRoute(device.Code, device.Token, systemHost, ruleSets, outbounds),
 		Experimental: singbox.GetExperimental(device.Code),
 		Inbounds:     singbox.GetInbounds(inbounds),
 		Outbounds:    outbounds,
@@ -132,7 +139,13 @@ func (s *Service) SurgeGenerated(c *gin.Context) {
 		return
 	}
 
-	configText := surge.Render(device.Code, outbounds, endpoints, groupRules, ruleSets)
+	systemHost, err := s.resolveSystemHost()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	configText := surge.Render(device.Code, device.Token, systemHost, outbounds, endpoints, groupRules, ruleSets)
 	c.String(http.StatusOK, configText)
 }
 
@@ -186,7 +199,13 @@ func (s *Service) ShadowrocketGenerated(c *gin.Context) {
 		return
 	}
 
-	configText := shadowrocket.Render(device.Code, singbox.ResolveDNS(dnsConfigJSON), outbounds, groupRules, ruleSets)
+	systemHost, err := s.resolveSystemHost()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	configText := shadowrocket.Render(device.Code, device.Token, systemHost, singbox.ResolveDNS(dnsConfigJSON), outbounds, groupRules, ruleSets)
 	c.String(http.StatusOK, configText)
 }
 

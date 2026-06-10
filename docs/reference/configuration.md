@@ -115,6 +115,27 @@
 - `/api/settings` 不会暴露，也不允许修改这些 key
 - 配置导入导出默认不会导出或导入这些 key
 
+## 全局设置项（key/value）
+
+通过 `/api/settings` 管理的普通全局设置（区别于上面的 `auth.*` 保留 key），常用项：
+
+### `dns_config`
+
+- 保存 sing-box 标准 DNS JSON，前端「DNS」页独立维护
+- 生成 sing-box 配置时读取；未配置时回退内置默认 DNS
+
+### `system_host`
+
+- 含义：本服务对外可访问的基础地址，如 `https://config.example.com`
+- 用途：生成整份配置时，把有效的 local / inline 规则集由“展开/内联”改为指向本服务规则集 open 接口（`/open/rules/:tag/:software/:device`）的远程 URL 引用
+- 取值约束：
+  - 必须是合法的 `http` / `https` 绝对地址；保存时会校验，非法值直接拒绝（返回 400）
+  - 读取与保存都会去掉首尾空白与尾部斜杠
+  - 留空表示未配置：生成时回退到原展开/内联行为，remote 规则集行为不变
+- 编辑入口：前端「Global Settings」页提供独立的「系统 Host」输入框，也可通过通用 key/value 设置项编辑
+- 可访问性要求：客户端必须能访问 `system_host`；如走反向代理需保证 HTTPS 与公网/内网可达
+- 注意：生成的规则集 URL 携带设备 token，设备 token 轮换后旧整份配置中的规则集 URL 会失效，需重新拉取整份配置
+
 ## 数据库配置
 
 项目必须使用数据库存储，支持以下方式：

@@ -78,6 +78,23 @@
 - 非法本地 JSON 会跳过并记录 warning，不中断整体配置生成
 - 最后固定追加 `FINAL,general`（兜底策略不参与上述存在性校验）
 
+## 规则集 URL 引用模式（依赖系统 Host）
+
+除“展开/内联”外，规则集还支持以**远程 URL 引用**方式输出，由全局设置 `system_host`（系统 Host）控制：
+
+- 配置合法 `system_host` 后，三条整份配置链路会把**有效的** local / inline 规则集改为指向本服务规则集 open 接口的远程引用：
+  - sing-box：`baseRuleSets()` 输出 `type:"remote"`、`format:"source"`、`url` 指向 `.../open/rules/<tag>/singbox/<device>?token=<token>`
+  - Surge / Shadowrocket：`renderRuleSection()` 输出单行 `RULE-SET,<url>,<policy>`，不再逐条展开
+- URL 由 `convert/ruleset.BuildRuleSetURL()` 拼接：`tag`、`device` 使用 path escape，`token` 使用 query escape，`system_host` 先去掉尾斜杠
+- 客户端通过 `GET /open/rules/:tag/:software/:device?token=...` 拉取该规则集内容（见[API 文档](../reference/api-reference.md)），解析/渲染逻辑统一收敛在 `convert/ruleset` 包
+- **鉴权模型**：规则集 open 接口复用整份配置接口的设备解析、启用状态、token 校验，并额外校验 `AbleDevices` 可见性（不可见按 404）
+- **降级与兼容**：
+  - `system_host` 未配置或非法：回退到原“展开/内联”行为，旧部署零配置可用
+  - local / inline `Content` 非法且 host 已配置：不生成指向坏内容的远程 URL，回退到展开/内联（仍会跳过坏内容并记录 warning）
+  - remote 规则集：始终保持原 `URL` 引用，不受影响
+  - 有效规则集过滤：sing-box 先按 `AbleDevices` 与 `Outbound` 存在性过滤，仅对有效规则集同时输出 `route.rule_set` 与 `route.rules`，避免输出“会被客户端下载却不被引用”的远程规则集
+- **设备 token 轮换**：生成的规则集 URL 携带设备 token，token 修改后旧整份配置中的规则集 URL 会失效，需重新拉取整份配置
+
 ## 设备可见性控制
 
 `ableDevices` 用于限制哪些设备会加载该规则集，当前逻辑是：
@@ -115,7 +132,8 @@
 - 规则集派生的普通规则会校验 `outbound` 是否存在（不存在则跳过），但 `downloadDetour`、FINAL/Final 兜底等其它引用仍不做校验
 - `ableDevices` 采用子串匹配，存在误匹配空间
 - 本地规则集保存为字符串，不做结构化字段校验
-- `GET /open/ruleset/:tag` 仅适合本地规则集；远程规则集没有单独下载代理接口
+- `GET /open/ruleset/:tag` 是无鉴权的历史兼容接口，仅适合本地规则集；面向客户端的多软件输出请用 `GET /open/rules/:tag/:software/:device`（带设备鉴权）。远程规则集没有单独下载代理接口
+- Surge / Shadowrocket 规则集文件第一版仅映射 `domain`/`domain_suffix`/`domain_keyword`/`domain_regex`/`ip_cidr`/`geoip`，其它字段跳过并记录 warning
 
 ## 适合更新本文档的场景
 

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 	"singboxconfig/convert/common"
+	"singboxconfig/convert/ruleset"
 	"singboxconfig/entity"
 	"sort"
 	"strconv"
@@ -194,7 +195,10 @@ type renderContext struct {
 // Render 将统一中间数据渲染为 Shadowrocket INI 风格配置文本。
 // 函数不访问数据库、不发 HTTP 请求，只处理传入的 DNS、Outbound、节点分组和规则集，
 // 因此协议映射、分组一致性和规则展开都可以通过单元测试直接覆盖。
-func Render(deviceCode string, dns entity.SingDNS, outbounds []entity.SingBoxOut, groups []*entity.NodeGroup, ruleSets []*entity.RuleSet) string {
+//
+// deviceToken 与 systemHost 用于把 local / inline 规则集改为单行 RULE-SET,<url>,<policy> 引用：
+// systemHost 非空且内容可解析时输出 URL 引用，否则回退到逐条展开，保证旧部署零配置可用。
+func Render(deviceCode string, deviceToken string, systemHost string, dns entity.SingDNS, outbounds []entity.SingBoxOut, groups []*entity.NodeGroup, ruleSets []*entity.RuleSet) string {
 	ctx := &renderContext{
 		proxyNames: make(map[string]string),
 		groupNames: make(map[string]string),
@@ -202,7 +206,7 @@ func Render(deviceCode string, dns entity.SingDNS, outbounds []entity.SingBoxOut
 
 	proxyLines := renderProxySection(ctx, outbounds)
 	groupLines := renderProxyGroupSection(ctx, deviceCode, groups)
-	ruleLines := renderRuleSection(ctx, deviceCode, ruleSets)
+	ruleLines := renderRuleSection(ctx, deviceCode, deviceToken, systemHost, ruleSets)
 	ctx.flushWarnings()
 
 	sections := [][]string{
@@ -625,7 +629,7 @@ func resolveGroupType(resolved entity.NodeGroupType) groupType {
 	return groupTypeSelect
 }
 
-func renderRuleSection(ctx *renderContext, deviceCode string, ruleSets []*entity.RuleSet) []string {
+func renderRuleSection(ctx *renderContext, deviceCode string, deviceToken string, systemHost string, ruleSets []*entity.RuleSet) []string {
 	sorted := append([]*entity.RuleSet(nil), ruleSets...)
 	sort.Slice(sorted, func(i, j int) bool {
 		if sorted[i] == nil || sorted[j] == nil {
@@ -634,6 +638,7 @@ func renderRuleSection(ctx *renderContext, deviceCode string, ruleSets []*entity
 		return sorted[i].Sort < sorted[j].Sort
 	})
 
+	host := strings.TrimSpace(systemHost)
 	lines := make([]string, 0, len(sorted)+1)
 	for _, ruleSet := range sorted {
 		if ruleSet == nil || !isRuleSetVisibleForDevice(ruleSet, deviceCode) {
@@ -652,6 +657,17 @@ func renderRuleSection(ctx *renderContext, deviceCode string, ruleSets []*entity
 			}
 			lines = append(lines, strings.Join([]string{string(ruleTypeRuleSet), ruleSet.URL, policy}, ","))
 			continue
+		}
+
+		// local / inline：系统 Host 可用且内容可解析时，输出单行 RULE-SET,<url>,<policy> 引用本服务 open 接口。
+		if host != "" {
+			if _, _, err := ruleset.RenderLines(ruleSet.Content); err == nil {
+				rulesetURL := ruleset.BuildRuleSetURL(host, ruleSet.Tag, entity.SoftwareShadowrocket, deviceCode, deviceToken)
+				lines = append(lines, strings.Join([]string{string(ruleTypeRuleSet), rulesetURL, policy}, ","))
+				continue
+			}
+			// 内容非法时不生成指向坏内容的 URL，回退到逐条展开（展开同样会跳过坏内容并记录 warning）。
+			ctx.warnf("Shadowrocket local ruleset content invalid, fallback to expand: tag=%s", ruleSet.Tag)
 		}
 		lines = append(lines, expandLocalRuleSet(ctx, ruleSet, policy)...)
 	}

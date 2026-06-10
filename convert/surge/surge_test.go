@@ -7,7 +7,7 @@ import (
 )
 
 func TestRenderProxyProtocols(t *testing.T) {
-	cfg := Render("phone", []entity.SingBoxOut{
+	cfg := Render("phone", "", "", []entity.SingBoxOut{
 		{
 			Type:       string(entity.OutboundProtocolShadowsocks),
 			Tag:        "ss-node",
@@ -74,7 +74,7 @@ func TestRenderProxyProtocols(t *testing.T) {
 }
 
 func TestRenderWireGuardEndpoints(t *testing.T) {
-	cfg := Render("phone", []entity.SingBoxOut{
+	cfg := Render("phone", "", "", []entity.SingBoxOut{
 		{
 			Type:       string(entity.OutboundProtocolShadowsocks),
 			Tag:        "ss-node",
@@ -116,7 +116,7 @@ func TestRenderWireGuardEndpoints(t *testing.T) {
 }
 
 func TestRenderSkipsUnsupportedProtocolAndKeepsGroupReferencesValid(t *testing.T) {
-	cfg := Render("phone", []entity.SingBoxOut{
+	cfg := Render("phone", "", "", []entity.SingBoxOut{
 		{
 			Type:       string(entity.OutboundProtocolShadowsocks),
 			Tag:        "香港01",
@@ -144,7 +144,7 @@ func TestRenderSkipsUnsupportedProtocolAndKeepsGroupReferencesValid(t *testing.T
 
 func TestRenderExpandsRuleSets(t *testing.T) {
 	ruleContent := `{"rules":[{"domain":["exact.example.com"],"domain_suffix":["example.com"],"domain_keyword":["video"],"domain_regex":["^api\\."],"ip_cidr":["192.168.0.0/16","2001:db8::/32"],"geoip":["cn"]}]}`
-	cfg := Render("phone", []entity.SingBoxOut{
+	cfg := Render("phone", "", "", []entity.SingBoxOut{
 		{
 			Type:       string(entity.OutboundProtocolShadowsocks),
 			Tag:        "proxy-node",
@@ -190,10 +190,10 @@ func TestRenderProxyGroupDeviceTypeOverride(t *testing.T) {
 		{Tag: "general", GroupType: string(entity.NodeGroupTypeSelector), Include: "香港", DeviceTypeOverrides: "gateway:urltest"},
 	}
 
-	gatewayCfg := Render("gateway", outbounds, nil, groups, nil)
+	gatewayCfg := Render("gateway", "", "", outbounds, nil, groups, nil)
 	mustContain(t, gatewayCfg, "general = url-test, 香港01, url=https://www.gstatic.com/generate_204, interval=600, tolerance=50")
 
-	phoneCfg := Render("phone", outbounds, nil, groups, nil)
+	phoneCfg := Render("phone", "", "", outbounds, nil, groups, nil)
 	mustContain(t, phoneCfg, "general = select, 香港01\n")
 	mustNotContain(t, phoneCfg, "url-test")
 }
@@ -202,7 +202,7 @@ func TestRenderProxyGroupDeviceTypeOverride(t *testing.T) {
 // 已存在出站、内置 DIRECT、以及 FINAL 兜底不受影响。
 func TestRenderSkipsRuleWithUnknownOutbound(t *testing.T) {
 	ruleContent := `{"rules":[{"domain_suffix":["example.com"]}]}`
-	cfg := Render("phone", []entity.SingBoxOut{
+	cfg := Render("phone", "", "", []entity.SingBoxOut{
 		{
 			Type:       string(entity.OutboundProtocolShadowsocks),
 			Tag:        "proxy-node",
@@ -240,5 +240,40 @@ func mustNotContain(t *testing.T, text string, unexpected string) {
 	t.Helper()
 	if strings.Contains(text, unexpected) {
 		t.Fatalf("rendered config contains unexpected %q:\n%s", unexpected, text)
+	}
+}
+
+// TestRenderLocalRuleSetURLReference 验证配置系统 Host 后，local 规则集输出为单行
+// RULE-SET,<url>,<policy>，不再逐条展开，且 URL 指向本服务 open 接口并正确转义。
+func TestRenderLocalRuleSetURLReference(t *testing.T) {
+	cfg := Render("iphone 15", "tok en", "https://config.example.com/", []entity.SingBoxOut{
+		{Tag: "香港01", Type: string(entity.OutboundProtocolShadowsocks), Server: "hk.example.com", ServerPort: 8388, Method: "aes-128-gcm", Password: "pass"},
+	}, nil, []*entity.NodeGroup{
+		{Tag: "general", GroupType: string(entity.NodeGroupTypeSelector), Include: "香港"},
+	}, []*entity.RuleSet{
+		{Tag: "geosite-cn", RuleSetType: string(entity.RuleSetTypeLocal), Outbound: "general", Content: `{"version":1,"rules":[{"domain_suffix":["cn"]}]}`},
+	})
+
+	wantLine := "RULE-SET,https://config.example.com/open/rules/geosite-cn/surge/iphone%2015?token=tok+en,general"
+	if !strings.Contains(cfg, wantLine) {
+		t.Errorf("config missing expected rule-set line:\n%s\n---\n%s", wantLine, cfg)
+	}
+	if strings.Contains(cfg, "DOMAIN-SUFFIX,cn") {
+		t.Errorf("local ruleset should not be expanded when system host configured:\n%s", cfg)
+	}
+}
+
+// TestRenderLocalRuleSetFallbackExpand 验证未配置系统 Host 时，local 规则集仍逐条展开。
+func TestRenderLocalRuleSetFallbackExpand(t *testing.T) {
+	cfg := Render("phone", "", "", []entity.SingBoxOut{
+		{Tag: "香港01", Type: string(entity.OutboundProtocolShadowsocks), Server: "hk.example.com", ServerPort: 8388, Method: "aes-128-gcm", Password: "pass"},
+	}, nil, []*entity.NodeGroup{
+		{Tag: "general", GroupType: string(entity.NodeGroupTypeSelector), Include: "香港"},
+	}, []*entity.RuleSet{
+		{Tag: "geosite-cn", RuleSetType: string(entity.RuleSetTypeLocal), Outbound: "general", Content: `{"version":1,"rules":[{"domain_suffix":["cn"]}]}`},
+	})
+
+	if !strings.Contains(cfg, "DOMAIN-SUFFIX,cn,general") {
+		t.Errorf("expected expanded rule when system host empty:\n%s", cfg)
 	}
 }
