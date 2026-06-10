@@ -22,8 +22,6 @@ const (
 	directPolicyName = "DIRECT"
 	// rejectPolicyName 是 Surge 内置的拒绝策略名称。
 	rejectPolicyName = "REJECT"
-	// systemDNSServer 是 Surge 使用系统 DNS 的保底写法。
-	systemDNSServer = "system"
 )
 
 type surgeProxyProtocol string
@@ -35,6 +33,12 @@ const (
 	surgeProxyTrojan surgeProxyProtocol = "trojan"
 	// surgeProxyVMess 表示 Surge VMess 代理协议关键字。
 	surgeProxyVMess surgeProxyProtocol = "vmess"
+	// surgeProxyHTTP 表示 Surge 明文 HTTP 代理协议关键字。
+	surgeProxyHTTP surgeProxyProtocol = "http"
+	// surgeProxyHTTPS 表示 Surge TLS HTTP 代理协议关键字。
+	surgeProxyHTTPS surgeProxyProtocol = "https"
+	// surgeProxyWireGuard 表示 Surge WireGuard 代理协议关键字。
+	surgeProxyWireGuard surgeProxyProtocol = "wireguard"
 )
 
 type surgeGroupType string
@@ -76,29 +80,35 @@ type renderContext struct {
 	proxyTags []string
 	// groupNames 记录节点分组 tag 到 Surge 策略组名称的映射。
 	groupNames map[string]string
+	// wireGuardSections 按导出顺序记录 WireGuard 独立配置段文本，追加到配置末尾。
+	wireGuardSections []string
 	// warnings 收集可降级问题，统一写入日志，避免中断整体配置生成。
 	warnings []string
 }
 
 // Render 将统一中间数据渲染为 Surge INI 风格配置文本。
-// 入参全部来自现有生成链路：DNS、统一 Outbound、NodeGroup 与 RuleSet，
+// 入参全部来自现有生成链路：统一 Outbound、WireGuard endpoint、NodeGroup 与 RuleSet，
 // 函数内部只做纯转换，便于对协议映射、分组一致性和规则展开做单元测试。
-func Render(deviceCode string, dns entity.SingDNS, outbounds []entity.SingBoxOut, groups []*entity.NodeGroup, ruleSets []*entity.RuleSet) string {
+func Render(deviceCode string, outbounds []entity.SingBoxOut, endpoints []entity.SingEndpointWireguard, groups []*entity.NodeGroup, ruleSets []*entity.RuleSet) string {
 	ctx := &renderContext{
 		proxyNames: make(map[string]string),
 		groupNames: make(map[string]string),
 	}
 
 	proxyLines := renderProxySection(ctx, outbounds)
+	proxyLines = append(proxyLines, renderWireGuardProxyLines(ctx, endpoints)...)
 	groupLines := renderProxyGroupSection(ctx, groups)
 	ruleLines := renderRuleSection(ctx, deviceCode, ruleSets)
 	ctx.flushWarnings()
 
 	sections := [][]string{
-		renderGeneralSection(dns),
+		renderGeneralSection(),
 		withSectionHeader("[Proxy]", proxyLines),
 		withSectionHeader("[Proxy Group]", groupLines),
 		withSectionHeader("[Rule]", ruleLines),
+	}
+	for _, wireGuardSection := range ctx.wireGuardSections {
+		sections = append(sections, []string{wireGuardSection})
 	}
 
 	var builder strings.Builder
@@ -112,33 +122,12 @@ func Render(deviceCode string, dns entity.SingDNS, outbounds []entity.SingBoxOut
 	return builder.String()
 }
 
-func renderGeneralSection(dns entity.SingDNS) []string {
+func renderGeneralSection() []string {
 	return []string{
 		"[General]",
 		"loglevel = notify",
-		"ipv6 = true",
-		"dns-server = " + strings.Join(resolveDNSServers(dns), ", "),
+		"ipv6 = false",
 	}
-}
-
-func resolveDNSServers(dns entity.SingDNS) []string {
-	servers := make([]string, 0, len(dns.Servers))
-	seen := make(map[string]struct{}, len(dns.Servers))
-	for _, server := range dns.Servers {
-		address := strings.TrimSpace(server.Address)
-		if address == "" || strings.HasPrefix(address, "rcode://") {
-			continue
-		}
-		if _, ok := seen[address]; ok {
-			continue
-		}
-		seen[address] = struct{}{}
-		servers = append(servers, address)
-	}
-	if len(servers) == 0 {
-		return []string{systemDNSServer}
-	}
-	return servers
 }
 
 func renderProxySection(ctx *renderContext, outbounds []entity.SingBoxOut) []string {
@@ -161,6 +150,116 @@ func renderProxySection(ctx *renderContext, outbounds []entity.SingBoxOut) []str
 	return lines
 }
 
+// renderWireGuardProxyLines 把 sing-box 的 WireGuard endpoint 转换为 Surge 代理。
+// 每个 endpoint 产出一条 [Proxy] 引用行与一段独立的 [WireGuard <Section>] 配置，
+// 同时把 endpoint tag 注册到 proxyNames/proxyTags，使其能被策略组和规则正常引用。
+func renderWireGuardProxyLines(ctx *renderContext, endpoints []entity.SingEndpointWireguard) []string {
+	lines := make([]string, 0, len(endpoints))
+	for _, endpoint := range endpoints {
+		name := policyName(endpoint.Tag)
+		if name == "" {
+			ctx.warnf("Surge wireguard endpoint missing tag, skip")
+			continue
+		}
+		if _, exists := ctx.proxyNames[endpoint.Tag]; exists {
+			ctx.warnf("Surge proxy name duplicated, skip wireguard endpoint: tag=%s name=%s", endpoint.Tag, name)
+			continue
+		}
+		if strings.TrimSpace(endpoint.PrivateKey) == "" {
+			ctx.warnf("Surge wireguard endpoint missing private_key, skip: tag=%s", endpoint.Tag)
+			continue
+		}
+		peerLines := wireGuardPeerLines(ctx, endpoint)
+		if len(peerLines) == 0 {
+			ctx.warnf("Surge wireguard endpoint has no usable peer, skip: tag=%s", endpoint.Tag)
+			continue
+		}
+
+		sectionName := name
+		ctx.proxyNames[endpoint.Tag] = name
+		ctx.proxyTags = append(ctx.proxyTags, endpoint.Tag)
+		lines = append(lines, name+" = "+string(surgeProxyWireGuard)+", "+keyValue("section-name", sectionName))
+		ctx.wireGuardSections = append(ctx.wireGuardSections, renderWireGuardSection(sectionName, endpoint, peerLines))
+	}
+	return lines
+}
+
+func renderWireGuardSection(sectionName string, endpoint entity.SingEndpointWireguard, peerLines []string) string {
+	sectionLines := []string{"[WireGuard " + sectionName + "]"}
+	sectionLines = append(sectionLines, "private-key = "+endpoint.PrivateKey)
+
+	ipv4, ipv6 := splitWireGuardAddresses(endpoint.Address)
+	if ipv4 != "" {
+		sectionLines = append(sectionLines, "self-ip = "+ipv4)
+	}
+	if ipv6 != "" {
+		sectionLines = append(sectionLines, "self-ip-v6 = "+ipv6)
+	}
+	if endpoint.MTU > 0 {
+		sectionLines = append(sectionLines, "mtu = "+strconv.Itoa(endpoint.MTU))
+	}
+	sectionLines = append(sectionLines, peerLines...)
+	return strings.Join(sectionLines, "\n")
+}
+
+func wireGuardPeerLines(ctx *renderContext, endpoint entity.SingEndpointWireguard) []string {
+	lines := make([]string, 0, len(endpoint.Peers))
+	for _, peer := range endpoint.Peers {
+		if strings.TrimSpace(peer.PublicKey) == "" {
+			ctx.warnf("Surge wireguard peer missing public_key, skip: tag=%s", endpoint.Tag)
+			continue
+		}
+		if strings.TrimSpace(peer.Address) == "" || peer.Port <= 0 {
+			ctx.warnf("Surge wireguard peer missing endpoint address or port, skip: tag=%s", endpoint.Tag)
+			continue
+		}
+		allowedIPs := peer.AllowedIps
+		if len(allowedIPs) == 0 {
+			allowedIPs = []string{"0.0.0.0/0", "::/0"}
+		}
+		fields := []string{
+			"public-key = " + peer.PublicKey,
+			"allowed-ips = " + strings.Join(allowedIPs, ", "),
+			"endpoint = " + net.JoinHostPort(peer.Address, strconv.Itoa(peer.Port)),
+		}
+		if strings.TrimSpace(peer.PreSharedKey) != "" {
+			fields = append(fields, "preshared-key = "+peer.PreSharedKey)
+		}
+		if peer.PersistentKeepaliveInterval > 0 {
+			fields = append(fields, "keepalive = "+strconv.Itoa(peer.PersistentKeepaliveInterval))
+		}
+		lines = append(lines, "peer = ("+strings.Join(fields, ", ")+")")
+	}
+	return lines
+}
+
+// splitWireGuardAddresses 把 sing-box 的客户端地址列表拆成 IPv4 与 IPv6，
+// 取首个匹配项，地址可能携带 CIDR 前缀，Surge 的 self-ip 字段同样接受。
+func splitWireGuardAddresses(addresses []string) (string, string) {
+	var ipv4, ipv6 string
+	for _, addr := range addresses {
+		trimmed := strings.TrimSpace(addr)
+		if trimmed == "" {
+			continue
+		}
+		host := trimmed
+		if idx := strings.Index(host, "/"); idx >= 0 {
+			host = host[:idx]
+		}
+		parsed := net.ParseIP(host)
+		if parsed != nil && parsed.To4() == nil {
+			if ipv6 == "" {
+				ipv6 = trimmed
+			}
+			continue
+		}
+		if ipv4 == "" {
+			ipv4 = trimmed
+		}
+	}
+	return ipv4, ipv6
+}
+
 func renderProxyLine(ctx *renderContext, outbound entity.SingBoxOut) (string, string, bool) {
 	protocolType := entity.OutboundProtocol(outbound.Type)
 	switch protocolType {
@@ -170,6 +269,8 @@ func renderProxyLine(ctx *renderContext, outbound entity.SingBoxOut) (string, st
 		return renderTrojanLine(ctx, outbound)
 	case entity.OutboundProtocolVMess:
 		return renderVMessLine(ctx, outbound)
+	case entity.OutboundProtocolHTTP:
+		return renderHTTPLine(ctx, outbound)
 	case entity.OutboundProtocolVLESS, entity.OutboundProtocolHysteria, entity.OutboundProtocolHysteria2, entity.OutboundProtocolTUIC:
 		ctx.warnf("Surge unsupported outbound protocol, skip: tag=%s type=%s", outbound.Tag, outbound.Type)
 		return "", "", false
@@ -243,6 +344,31 @@ func renderVMessLine(ctx *renderContext, outbound entity.SingBoxOut) (string, st
 	}
 	appendTLSParameters(&parts, outbound.TLS)
 	appendVMessTransportParameters(&parts, outbound.Transport)
+	return strings.Join(parts, ", "), name, true
+}
+
+func renderHTTPLine(ctx *renderContext, outbound entity.SingBoxOut) (string, string, bool) {
+	name, ok := validateProxyBasics(ctx, outbound)
+	if !ok {
+		return "", "", false
+	}
+	// sing-box 通过 tls.enabled 区分明文 HTTP 与 HTTPS，Surge 中对应 http / https 两种关键字。
+	protocol := surgeProxyHTTP
+	if outbound.TLS != nil && outbound.TLS.Enabled {
+		protocol = surgeProxyHTTPS
+	}
+	parts := []string{
+		name + " = " + string(protocol),
+		outbound.Server,
+		strconv.Itoa(outbound.ServerPort),
+	}
+	if outbound.Username != "" {
+		parts = append(parts, keyValue("username", outbound.Username))
+	}
+	if outbound.Password != "" {
+		parts = append(parts, keyValue("password", outbound.Password))
+	}
+	appendTLSParameters(&parts, outbound.TLS)
 	return strings.Join(parts, ", "), name, true
 }
 

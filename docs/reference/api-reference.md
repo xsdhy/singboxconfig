@@ -74,8 +74,10 @@
 - 复用 `/open/generate/:device` 的设备解析、启用状态和 token 鉴权
 - 复用订阅缓存刷新、Outbound 设备可见性过滤、节点分组筛选和规则集过滤
 - `Content-Type` 为 `text/plain`
-- Shadowsocks / Trojan 会完整映射，VMess 做 best-effort 映射
-- VLESS / Hysteria / Hysteria2 / TUIC 等 Surge 第一版未导出的协议会跳过并记录 warning
+- Shadowsocks / Trojan / HTTP(HTTPS) 会完整映射，VMess 做 best-effort 映射
+- WireGuard endpoint 会转换为 Surge 的 `wireguard` 代理与独立 `[WireGuard]` 配置段
+- VLESS / Hysteria / Hysteria2 / TUIC 等 Surge 未导出的协议会跳过并记录 warning
+- `[General]` 默认关闭 IPv6（`ipv6 = false`）
 
 状态码：
 

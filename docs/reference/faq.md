@@ -117,7 +117,7 @@
 
 可能原因：
 
-- Surge 输出第一版只导出 Shadowsocks、Trojan 和 best-effort VMess
+- Surge 输出导出 Shadowsocks、Trojan、HTTP(HTTPS)、best-effort VMess，以及由 WireGuard endpoint 转换的 `wireguard` 代理
 - VLESS、Hysteria、Hysteria2、TUIC 等协议会被跳过并记录 warning
 - Shadowrocket 输出会额外导出 SSR / VLESS，并对 Hysteria2 / TUIC 做 best-effort 映射
 - Hysteria v1 等当前未导出的协议仍会跳过并记录 warning

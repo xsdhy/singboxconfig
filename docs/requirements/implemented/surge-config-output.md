@@ -28,7 +28,9 @@
 ## 非目标
 
 - 移除或替换现有 sing-box 输出（两套输出并存，互不影响）
-- 第一版导出 inbound（TUN/HTTP/SOCKS）与 WireGuard endpoint（语法迥异，且对 Surge 客户端场景通常非必需，留待后续按需补充）
+- 第一版导出 inbound（TUN/HTTP/SOCKS）（语法迥异，且对 Surge 客户端场景通常非必需，留待后续按需补充）
+
+> WireGuard endpoint 已在后续增量中支持导出（见协议支持矩阵与「设计细节」）。
 - 把 sing-box 已存的 `.srs` 二进制远程规则集转换为 Surge 规则格式（remote 规则集仅做 `RULE-SET` 直引，不做格式转换）
 - 前端完整的 Surge 链接管理界面（可作为后置增量）
 - 在 Surge 端复刻 sing-box 的 DNS 分流细节，仅输出基础 DNS 配置
@@ -39,13 +41,16 @@
 |------|------|------|------|
 | Shadowsocks (ss) | ✅ | ✅ | 完整映射 |
 | Trojan | ✅ | ✅ | 完整映射 |
+| HTTP / HTTPS | ✅ | ✅ | 完整映射（依据 `tls.enabled` 区分 http/https） |
 | VMess | ✅ | ⚠️ 仅 Surge 4+，功能受限 | best-effort，标注限制 |
 | VLESS | ✅ | ❌ | 跳过 + warning |
 | Hysteria / Hysteria2 | ✅ | ❌ | 跳过 + warning |
 | TUIC | ✅ | ❌ | 跳过 + warning |
-| WireGuard | ✅（endpoint） | ✅（语法不同） | 第一版不导出 |
+| WireGuard | ✅（endpoint） | ✅（语法不同） | 转换为 `wireguard` 代理 + `[WireGuard]` 段 |
 
 > 已确认当前订阅节点以 **SS / Trojan 为主**，因此协议覆盖足以承载实际节点，跳过的协议不构成阻塞。
+
+> 增量说明：在首版基础上后续补充了 **HTTP/HTTPS 节点导出**、**WireGuard endpoint 导出**，并把 `[General]` 的 `ipv6` 默认值改为 `false`（关闭 IPv6）。
 
 ## 方案结论
 
@@ -122,15 +127,32 @@ GET /open/surge/:device?token=...       → Surge 文本（新增，c.String）
 
 仅从全局 DNS 配置中提取上游地址输出为 `[General]` 的 `dns-server`，不在 Surge 端复刻 sing-box 的完整 DNS 分流规则。
 
+### HTTP / HTTPS 节点
+
+sing-box 的 `http` outbound 通过 `tls.enabled` 区分明文与加密，对应 Surge 的 `http` 与 `https` 两种关键字。导出时携带 `username` / `password`（按需），并复用 TLS 参数映射（`sni`、`skip-cert-verify`、`alpn`）。
+
+### WireGuard endpoint
+
+WireGuard 在 sing-box 中存放于 `endpoints`（而非 `outbounds`），Surge 输出链路复用 `resolveGenerateEndpoints(device)` 取出 endpoint，再由 `convert/surge` 转换：
+
+- 每个 endpoint 产出一条 `名称 = wireguard, section-name=<名称>` 的 `[Proxy]` 引用行
+- 同时输出一段独立的 `[WireGuard <名称>]` 配置：`private-key`、`self-ip` / `self-ip-v6`（按 IPv4 / IPv6 拆分客户端地址）、`mtu`、以及每个 `peer = (public-key=..., allowed-ips=..., endpoint=host:port, preshared-key=..., keepalive=...)`
+- endpoint tag 注册进代理名集合，可被策略组与规则正常引用；缺少 tag / private-key / 可用 peer 时降级跳过并记录 warning
+
+### IPv6 默认关闭
+
+`[General]` 段固定输出 `ipv6 = false`，默认关闭 IPv6。
+
 ## 实现范围
 
 ### 后端
 
 - [x] 新增 `GET /open/surge/:device?token=...` 路由与 service 处理函数
-- [x] 新增 `convert/surge/` 包：`[General]` / `[Proxy]` / `[Proxy Group]` / `[Rule]` 渲染
-- [x] SS / Trojan 完整映射，VMess best-effort，其余协议跳过 + warning
-- [x] 复用 `resolveGenerateOutbounds`、节点分组筛选、规则集过滤、设备鉴权
-- [x] 单元测试：协议映射、分组成员一致性、不支持协议跳过、规则集展开
+- [x] 新增 `convert/surge/` 包：`[General]` / `[Proxy]` / `[Proxy Group]` / `[Rule]` / `[WireGuard]` 渲染
+- [x] SS / Trojan / HTTP(HTTPS) 完整映射，VMess best-effort，WireGuard endpoint 转换为 `wireguard` 代理，其余协议跳过 + warning
+- [x] `[General]` 默认关闭 IPv6（`ipv6 = false`）
+- [x] 复用 `resolveGenerateOutbounds`、`resolveGenerateEndpoints`、节点分组筛选、规则集过滤、设备鉴权
+- [x] 单元测试：协议映射、HTTP/HTTPS、WireGuard endpoint、分组成员一致性、不支持协议跳过、规则集展开
 
 ### 前端（可选）
 

@@ -17,7 +17,7 @@ GET /open/surge/:device?token=...
 GET /open/shadowrocket/:device?token=...
 ```
 
-Surge 输出复用同一套设备解析、token 鉴权、DNS 读取、订阅缓存刷新、Outbound 可见性过滤、节点分组筛选和规则集过滤，最后由 `convert/surge` 渲染为 INI 风格文本。它不导出 Inbound 与 WireGuard endpoint。
+Surge 输出复用同一套设备解析、token 鉴权、DNS 读取、订阅缓存刷新、Outbound 可见性过滤、节点分组筛选和规则集过滤，最后由 `convert/surge` 渲染为 INI 风格文本。它不导出 Inbound，但会把 WireGuard endpoint 转换为 Surge 的 `wireguard` 代理与独立 `[WireGuard]` 配置段。
 
 Shadowrocket 输出同样复用这套数据层能力，最后由 `convert/shadowrocket` 渲染为 INI 风格文本。相比 Surge，它额外覆盖 ShadowsocksR、VLESS，并对 Hysteria2、TUIC 做 best-effort 映射；第一版同样不导出 Inbound 与 WireGuard endpoint。
 
@@ -320,12 +320,14 @@ entity.SingBoxConfig{
 
 然后通过 `c.JSON(http.StatusOK, singBoxConfig)` 返回给客户端。
 
-Surge 输出入口 `SurgeGenerated` 复用前面的致命错误处理和 `resolveGenerateOutbounds(ctx, deviceCode)`，但不组装 sing-box 专属的 Inbound、Endpoint、Experimental。它读取 `ListNodeGroups()` 和 `ListRuleSets()` 后调用 `surge.Render(...)`，通过 `text/plain` 返回包含 `[General]`、`[Proxy]`、`[Proxy Group]`、`[Rule]` 的配置文本。
+Surge 输出入口 `SurgeGenerated` 复用前面的致命错误处理和 `resolveGenerateOutbounds(ctx, deviceCode)`，不组装 sing-box 专属的 Inbound、Experimental，但会复用 `resolveGenerateEndpoints(device)` 取出 WireGuard endpoint。它读取 `ListNodeGroups()` 和 `ListRuleSets()` 后调用 `surge.Render(...)`，通过 `text/plain` 返回包含 `[General]`、`[Proxy]`、`[Proxy Group]`、`[Rule]` 以及按需追加的 `[WireGuard <名称>]` 的配置文本。
 
 Surge 渲染规则：
 
-- `[General]` 从 sing-box DNS server 中提取上游地址，跳过 `rcode://` 这类非上游地址
-- `[Proxy]` 导出 Shadowsocks、Trojan、VMess；不支持或关键字段缺失的节点跳过并记录 warning
+- `[General]` 输出基础选项，默认 `ipv6 = false`（关闭 IPv6）
+- `[Proxy]` 导出 Shadowsocks、Trojan、VMess、HTTP/HTTPS，以及由 WireGuard endpoint 转换的 `wireguard` 代理；不支持或关键字段缺失的节点跳过并记录 warning
+  - HTTP outbound 依据 `tls.enabled` 区分输出 `http` 或 `https`，并带上 `username` / `password`
+  - 每个 WireGuard endpoint 产出一条 `名称 = wireguard, section-name=<名称>` 代理行与一段独立的 `[WireGuard <名称>]` 配置（`private-key`、`self-ip`/`self-ip-v6`、`mtu`、`peer = (...)`），并注册到代理名集合中供分组和规则引用
 - `[Proxy Group]` 复用同一份 include / exclude 筛选逻辑，且只引用已成功导出的代理名称
 - `[Rule]` 对 remote 规则集输出 `RULE-SET,<url>,<outbound>`，对本地规则集展开常见域名、CIDR、GEOIP 规则，最后追加 `FINAL,general`
 

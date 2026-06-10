@@ -152,7 +152,7 @@ docs/
 - **Outbound 管理**: 统一管理手工节点与订阅缓存节点，支持缓存与筛选
 - **DNS 配置**: 配置 DNS 服务器与路由规则
 - **配置生成**: 一键生成设备专属的完整 sing-box JSON 配置
-- **Surge 输出**: 复用同一数据层生成设备专属 Surge 配置文本
+- **Surge 输出**: 复用同一数据层生成设备专属 Surge 配置文本，覆盖 SS / Trojan / VMess / HTTP(HTTPS) 协议，并导出 WireGuard endpoint
 - **Shadowrocket 输出**: 复用同一数据层生成设备专属 Shadowrocket 配置文本，覆盖 SS / SSR / Trojan / VMess / VLESS 等协议
 - **导入导出**: 配置数据的备份、迁移与默认值初始化
 

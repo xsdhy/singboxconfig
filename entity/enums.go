@@ -13,6 +13,8 @@ const (
 	OutboundProtocolTrojan OutboundProtocol = "trojan"
 	// OutboundProtocolVMess 表示 VMess 出站，Surge 仅支持 best-effort 映射。
 	OutboundProtocolVMess OutboundProtocol = "vmess"
+	// OutboundProtocolHTTP 表示 HTTP/HTTPS 出站，Surge 中映射为 http/https。
+	OutboundProtocolHTTP OutboundProtocol = "http"
 	// OutboundProtocolVLESS 表示 VLESS 出站，Surge 第一版不导出。
 	OutboundProtocolVLESS OutboundProtocol = "vless"
 	// OutboundProtocolHysteria 表示 Hysteria 出站，Surge 第一版不导出。

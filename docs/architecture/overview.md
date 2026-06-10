@@ -114,7 +114,7 @@ React SPA
 8. 组装 route、experimental、inbounds、outbounds
 9. 返回 `entity.SingBoxConfig`
 
-`GET /open/surge/:device?token=...` 是 Surge 文本输出入口。它复用相同的数据层能力，并将 Shadowsocks、Trojan、VMess 节点、节点分组和规则集渲染为 Surge 的 `[General]`、`[Proxy]`、`[Proxy Group]`、`[Rule]` 分段文本。
+`GET /open/surge/:device?token=...` 是 Surge 文本输出入口。它复用相同的数据层能力，并将 Shadowsocks、Trojan、VMess、HTTP(HTTPS) 节点、由 WireGuard endpoint 转换的 `wireguard` 代理、节点分组和规则集渲染为 Surge 的 `[General]`、`[Proxy]`、`[Proxy Group]`、`[Rule]`、`[WireGuard]` 分段文本。
 
 `GET /open/shadowrocket/:device?token=...` 是 Shadowrocket 文本输出入口。它复用相同的数据层能力，并将 Shadowsocks、ShadowsocksR、Trojan、VMess、VLESS 节点以及 best-effort Hysteria2 / TUIC 节点、节点分组和规则集渲染为 Shadowrocket 的 `[General]`、`[Proxy]`、`[Proxy Group]`、`[Rule]` 分段文本。
 

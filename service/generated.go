@@ -108,12 +108,6 @@ func (s *Service) SurgeGenerated(c *gin.Context) {
 		return
 	}
 
-	dnsConfigJSON, err := s.resolveDNSConfigJSON()
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-
 	ruleSets, err := s.storage.ListRuleSets()
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -132,7 +126,13 @@ func (s *Service) SurgeGenerated(c *gin.Context) {
 		return
 	}
 
-	configText := surge.Render(device.Code, singbox.ResolveDNS(dnsConfigJSON), outbounds, groupRules, ruleSets)
+	endpoints, err := s.resolveGenerateEndpoints(device)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	configText := surge.Render(device.Code, outbounds, endpoints, groupRules, ruleSets)
 	c.String(http.StatusOK, configText)
 }
 
