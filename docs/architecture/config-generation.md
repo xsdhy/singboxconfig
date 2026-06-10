@@ -255,7 +255,7 @@ Shadowrocket 输出同样复用这套数据层能力，最后由 `convert/shadow
 
 ## 8. 生成路由
 
-路由由 `singbox.GetRoute(device.Code, ruleSets)` 负责。
+路由由 `singbox.GetRoute(device.Code, ruleSets, outbounds)` 负责。`outbounds` 为当前设备最终出站列表，用于校验规则引用的出站是否存在。
 
 ### 8.1 基础规则
 
@@ -293,6 +293,8 @@ rule_set = [tag]
 outbound = ruleSet.Outbound
 ```
 
+若 `ruleSet.Outbound` 不在当前设备最终出站列表（含节点分组出站与 `direct`）中，则跳过该条规则并记录 warning，避免生成指向不存在出站的路由规则。`route.final` 兜底不参与此校验。
+
 最终 `route.final` 固定为 `general`，`auto_detect_interface=true`。
 
 ## 9. 生成 experimental
@@ -313,7 +315,7 @@ outbound = ruleSet.Outbound
 entity.SingBoxConfig{
     DNS:          singbox.ResolveDNS(dnsConfigJSON),
     Endpoints:    endpoints,
-    Route:        singbox.GetRoute(device.Code, ruleSets),
+    Route:        singbox.GetRoute(device.Code, ruleSets, outbounds),
     Experimental: singbox.GetExperimental(device.Code),
     Inbounds:     singbox.GetInbounds(inbounds),
     Outbounds:    outbounds,

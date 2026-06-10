@@ -491,6 +491,8 @@ general = select, Proxy-SS
 FINAL,general
 ```
 
+> **规则出站校验**：三条配置输出接口（`/open/generate`、`/open/surge`、`/open/shadowrocket`）在生成分流规则时，会校验每条规则集引用的 `outbound` 是否真实存在于当前设备的输出中——sing-box 校验最终出站列表（含节点分组出站与 `direct`），Surge / Shadowrocket 校验各自实际导出的代理、策略组与内置 `DIRECT`/`REJECT`。引用不存在目标的规则会被跳过并记录 warning，避免生成指向空策略的悬空规则。`FINAL`/`final` 兜底策略不参与该校验。
+
 ### 创建订阅
 
 ```bash

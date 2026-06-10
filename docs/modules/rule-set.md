@@ -66,6 +66,7 @@
 - 先写入一组基础规则
 - 再按 `sort` 升序遍历规则集
 - 每条规则集追加一条 `{"rule_set":[tag], "outbound": outbound}`
+- 规则集的 `outbound` 不在当前设备最终出站列表（含节点分组出站与 `direct`）中时，**跳过该条规则并记录 warning**，避免生成指向不存在出站的路由规则
 
 ## 生成到 Surge / Shadowrocket 的方式
 
@@ -73,8 +74,9 @@
 
 - `ruleSetType == "remote"`：输出 `RULE-SET,<url>,<outbound>`
 - `local` / `inline`：解析 `content` 中常见的 `domain`、`domain_suffix`、`domain_keyword`、`domain_regex`、`ip_cidr`、`geoip` 字段，并展开为对应客户端的规则行
+- 规则的 `outbound` 既不是内置 `DIRECT` / `REJECT`，也未命中任何已导出的代理或策略组时，**跳过该条规则并记录 warning**（按各软件实际可生成的代理/策略组判定）
 - 非法本地 JSON 会跳过并记录 warning，不中断整体配置生成
-- 最后固定追加 `FINAL,general`
+- 最后固定追加 `FINAL,general`（兜底策略不参与上述存在性校验）
 
 ## 设备可见性控制
 
@@ -100,7 +102,7 @@
 - `find_process: false`
 - `auto_detect_interface: true`
 
-这里的 `final="general"` 假设系统中存在名为 `general` 的出站或节点分组；代码当前不做存在性校验。
+这里的 `final="general"` 假设系统中存在名为 `general` 的出站或节点分组；FINAL/Final 兜底策略不做存在性校验（仅规则集派生的普通规则会校验出站是否存在）。
 
 ## 与其他模块的关系
 
@@ -110,7 +112,7 @@
 
 ## 当前限制
 
-- 不支持规则集引用合法性校验
+- 规则集派生的普通规则会校验 `outbound` 是否存在（不存在则跳过），但 `downloadDetour`、FINAL/Final 兜底等其它引用仍不做校验
 - `ableDevices` 采用子串匹配，存在误匹配空间
 - 本地规则集保存为字符串，不做结构化字段校验
 - `GET /open/ruleset/:tag` 仅适合本地规则集；远程规则集没有单独下载代理接口

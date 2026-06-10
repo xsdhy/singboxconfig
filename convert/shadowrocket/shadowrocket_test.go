@@ -161,6 +161,63 @@ func TestRenderExpandsRuleSets(t *testing.T) {
 	mustContain(t, cfg, "FINAL,general")
 }
 
+// TestRenderProxyGroupDeviceTypeOverride 验证 Shadowrocket 分组类型可按设备覆盖。
+// 同一份分组定义，对 gateway 覆盖为 urltest（输出 url-test 并携带探测参数），
+// phone 未命中覆盖时回退默认 selector（输出 select 且不带探测参数）。
+func TestRenderProxyGroupDeviceTypeOverride(t *testing.T) {
+	outbounds := []entity.SingBoxOut{
+		{
+			Type:       string(entity.OutboundProtocolShadowsocks),
+			Tag:        "香港01",
+			Server:     "hk.example.com",
+			ServerPort: 8388,
+			Method:     "aes-128-gcm",
+			Password:   "pass",
+		},
+	}
+	groups := []*entity.NodeGroup{
+		{Tag: "general", GroupType: string(entity.NodeGroupTypeSelector), Include: "香港", DeviceTypeOverrides: "gateway:urltest"},
+	}
+
+	gatewayCfg := Render("gateway", entity.SingDNS{}, outbounds, groups, nil)
+	mustContain(t, gatewayCfg, "general = url-test, 香港01, url=https://www.gstatic.com/generate_204, interval=600, tolerance=50")
+
+	phoneCfg := Render("phone", entity.SingDNS{}, outbounds, groups, nil)
+	mustContain(t, phoneCfg, "general = select, 香港01\n")
+	mustNotContain(t, phoneCfg, "url-test")
+}
+
+// TestRenderSkipsRuleWithUnknownOutbound 验证规则引用的出站/策略组不存在时跳过该条规则，
+// 已存在出站、内置 DIRECT、以及 FINAL 兜底不受影响。
+func TestRenderSkipsRuleWithUnknownOutbound(t *testing.T) {
+	ruleContent := `{"rules":[{"domain_suffix":["example.com"]}]}`
+	cfg := Render("phone", entity.SingDNS{}, []entity.SingBoxOut{
+		{
+			Type:       string(entity.OutboundProtocolShadowsocks),
+			Tag:        "proxy-node",
+			Server:     "proxy.example.com",
+			ServerPort: 8388,
+			Method:     "aes-128-gcm",
+			Password:   "pass",
+		},
+	}, []*entity.NodeGroup{
+		{Tag: "general", GroupType: string(entity.NodeGroupTypeSelector)},
+	}, []*entity.RuleSet{
+		{Tag: "ok-group", RuleSetType: string(entity.RuleSetTypeLocal), Content: ruleContent, Outbound: "general", Sort: 10},
+		{Tag: "ok-proxy", RuleSetType: string(entity.RuleSetTypeLocal), Content: ruleContent, Outbound: "proxy-node", Sort: 20},
+		{Tag: "ok-direct", RuleSetType: string(entity.RuleSetTypeLocal), Content: ruleContent, Outbound: "direct", Sort: 30},
+		{Tag: "ghost", RuleSetType: string(entity.RuleSetTypeLocal), Content: ruleContent, Outbound: "missing-node", Sort: 40},
+		{Tag: "ghost-remote", RuleSetType: string(entity.RuleSetTypeRemote), URL: "https://example.com/ghost.list", Outbound: "missing-node", Sort: 50},
+	})
+
+	mustContain(t, cfg, "DOMAIN-SUFFIX,example.com,general")
+	mustContain(t, cfg, "DOMAIN-SUFFIX,example.com,proxy-node")
+	mustContain(t, cfg, "DOMAIN-SUFFIX,example.com,DIRECT")
+	mustNotContain(t, cfg, "missing-node")
+	mustNotContain(t, cfg, "https://example.com/ghost.list")
+	mustContain(t, cfg, "FINAL,general")
+}
+
 func mustContain(t *testing.T, text string, want string) {
 	t.Helper()
 	if !strings.Contains(text, want) {

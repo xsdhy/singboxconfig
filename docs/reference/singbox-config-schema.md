@@ -92,7 +92,7 @@
 规则由两部分组成：
 
 - 基础规则：DNS 劫持、`clash_mode`、QUIC 拒绝
-- 按 `sort` 排序后的规则集引用
+- 按 `sort` 排序后的规则集引用；其 `outbound` 不在最终出站列表（含节点分组出站与 `direct`）中时跳过该条，`final` 兜底不参与校验
 
 ## `experimental`
 

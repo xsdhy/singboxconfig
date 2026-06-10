@@ -639,7 +639,12 @@ func renderRuleSection(ctx *renderContext, deviceCode string, ruleSets []*entity
 		if ruleSet == nil || !isRuleSetVisibleForDevice(ruleSet, deviceCode) {
 			continue
 		}
-		policy := ctx.policyReference(ruleSet.Outbound)
+		// 规则引用的出站/策略组在当前设备配置中不存在时跳过该条规则，避免生成悬空策略引用。
+		policy, ok := ctx.resolvePolicy(ruleSet.Outbound)
+		if !ok {
+			ctx.warnf("Shadowrocket ruleset outbound not found in proxies or groups, skip rule: tag=%s outbound=%s", ruleSet.Tag, ruleSet.Outbound)
+			continue
+		}
 		if entity.RuleSetType(ruleSet.RuleSetType) == entity.RuleSetTypeRemote {
 			if strings.TrimSpace(ruleSet.URL) == "" {
 				ctx.warnf("Shadowrocket remote ruleset missing url, skip: tag=%s", ruleSet.Tag)
@@ -734,23 +739,31 @@ func appendRules(lines []string, itemType ruleType, values []string, policy stri
 }
 
 func (ctx *renderContext) policyReference(tag string) string {
+	name, _ := ctx.resolvePolicy(tag)
+	return name
+}
+
+// resolvePolicy 把规则出站标签解析为 Shadowrocket 策略名称，并返回该策略是否真实存在。
+// 空标签与内置 DIRECT / REJECT 视为始终存在；其余标签必须命中已导出的代理或策略组，
+// 否则 ok=false，供普通规则据此跳过悬空引用。FINAL 兜底通过 policyReference 忽略 ok。
+func (ctx *renderContext) resolvePolicy(tag string) (string, bool) {
 	trimmed := strings.TrimSpace(tag)
 	if trimmed == "" {
-		return defaultPolicyName
+		return defaultPolicyName, true
 	}
 	switch strings.ToLower(trimmed) {
 	case "direct":
-		return directPolicyName
+		return directPolicyName, true
 	case "reject":
-		return rejectPolicyName
+		return rejectPolicyName, true
 	default:
 		if name, ok := ctx.proxyNames[trimmed]; ok {
-			return name
+			return name, true
 		}
 		if name, ok := ctx.groupNames[trimmed]; ok {
-			return name
+			return name, true
 		}
-		return policyName(trimmed)
+		return policyName(trimmed), false
 	}
 }
 

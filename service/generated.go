@@ -73,7 +73,7 @@ func (s *Service) Generated(c *gin.Context) {
 	singBoxConfig := entity.SingBoxConfig{
 		DNS:          singbox.ResolveDNS(dnsConfigJSON),
 		Endpoints:    endpoints,
-		Route:        singbox.GetRoute(device.Code, ruleSets),
+		Route:        singbox.GetRoute(device.Code, ruleSets, outbounds),
 		Experimental: singbox.GetExperimental(device.Code),
 		Inbounds:     singbox.GetInbounds(inbounds),
 		Outbounds:    outbounds,

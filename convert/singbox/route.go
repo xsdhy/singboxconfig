@@ -5,6 +5,8 @@ import (
 	"singboxconfig/entity"
 	"sort"
 	"strings"
+
+	"github.com/sirupsen/logrus"
 )
 
 // 匹配说明
@@ -16,7 +18,10 @@ import (
 //other fields
 //另外，引用的规则集可视为被合并，而不是作为一个单独的规则子项。
 
-func GetRoute(device string, ruleSets []*entity.RuleSet) entity.SingRoute {
+// GetRoute 生成 sing-box 路由配置。
+// outbounds 是当前设备最终的出站列表（含分组出站与 direct），用于校验规则引用的出站是否真实存在；
+// 规则引用了不存在的出站时直接跳过该条，避免生成指向空出站的路由规则。
+func GetRoute(device string, ruleSets []*entity.RuleSet, outbounds []entity.SingBoxOut) entity.SingRoute {
 	route := entity.SingRoute{
 		RuleSet:             baseRuleSets(device, ruleSets),
 		Final:               "general",
@@ -28,6 +33,14 @@ func GetRoute(device string, ruleSets []*entity.RuleSet) entity.SingRoute {
 	//通用基础规则
 	rules = append(rules, baseRules()...)
 
+	// 已存在的出站标签集合，用于规则引用校验；FINAL 兜底与基础规则不参与校验。
+	outboundTags := make(map[string]struct{}, len(outbounds))
+	for _, outbound := range outbounds {
+		if outbound.Tag != "" {
+			outboundTags[outbound.Tag] = struct{}{}
+		}
+	}
+
 	// 按照 Sort 字段排序
 	sort.Slice(ruleSets, func(i, j int) bool {
 		return ruleSets[i].Sort < ruleSets[j].Sort
@@ -36,6 +49,14 @@ func GetRoute(device string, ruleSets []*entity.RuleSet) entity.SingRoute {
 	for _, ruleSet := range ruleSets {
 		if ruleSet.AbleDevices != "" && !strings.Contains(ruleSet.AbleDevices, device) {
 			continue
+		}
+
+		// 规则指定了出站，但该出站在当前设备的出站列表中不存在时跳过该条规则。
+		if ruleSet.Outbound != "" {
+			if _, ok := outboundTags[ruleSet.Outbound]; !ok {
+				logrus.Warnf("GetRoute: ruleset outbound not found in outbounds, skip rule: tag=%s outbound=%s", ruleSet.Tag, ruleSet.Outbound)
+				continue
+			}
 		}
 
 		rules = append(rules, entity.SingRouteRule{
