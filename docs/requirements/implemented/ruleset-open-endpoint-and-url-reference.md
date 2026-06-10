@@ -243,7 +243,7 @@ Surge / Shadowrocket 当前已经在 `renderRuleSection()` 中先校验 policy �
 3. local / inline `Content` 非法且 host 已配置时，是先回退展开后跳过，还是直接跳过？建议先回退展开，确保与旧行为尽量一致。
    - **结论（已实现）**：先回退到原展开/内联逻辑，展开失败再跳过并记录 warning，三条输出一致。
 4. 是否要在前端规则集管理页提供“复制当前设备规则集 URL”的入口？第一版不是必须，但对验证和使用会更友好。
-   - **结论**：第一版未实现，留作后续增强。
+   - **结论（已实现）**：规则集列表页 local 规则集卡片新增「复制地址」按钮，弹窗内选择设备后按 sing-box / Surge / Shadowrocket 三种软件复制 `/open/rules/:tag/:software/:device?token=` 绝对地址（前缀取系统 Host）。
 
 ## 验收标准
 

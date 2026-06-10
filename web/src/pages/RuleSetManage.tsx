@@ -2,14 +2,18 @@ import { useState, useEffect, useCallback } from 'react';
 import { Message } from '@arco-design/web-react';
 import RuleSetTable from '../components/RuleSetTable';
 import RuleSetModal from '../components/RuleSetModal';
+import RuleSetCopyURLModal from '../components/RuleSetCopyURLModal';
 import PageToolbar from '../components/PageToolbar';
 import DataState from '../components/DataState';
 import * as api from '../api';
-import type { RuleSet, NodeGroup } from '../types';
+import { SYSTEM_HOST_SETTING_KEY } from '../utils/systemHost';
+import type { RuleSet, NodeGroup, Device } from '../types';
 
 export default function RuleSetManage() {
   const [ruleSets, setRuleSets] = useState<RuleSet[]>([]);
   const [nodeGroups, setNodeGroups] = useState<NodeGroup[]>([]);
+  const [devices, setDevices] = useState<Device[]>([]);
+  const [systemHost, setSystemHost] = useState('');
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -18,8 +22,10 @@ export default function RuleSetManage() {
   const [rsVisible, setRsVisible] = useState(false);
   const [rsTitle, setRsTitle] = useState('添加规则集');
   const [rsForm, setRsForm] = useState<Partial<RuleSet>>({});
+  const [copyTarget, setCopyTarget] = useState<RuleSet | null>(null);
 
   // 规则集列表依赖节点分组数据，因为弹窗里需要选择默认出站和下载出口。
+  // 同时加载设备与系统 Host，供「复制地址」弹窗拼接 open 接口的绝对地址。
   const loadData = useCallback(async (manual = false) => {
     try {
       if (manual) {
@@ -27,23 +33,36 @@ export default function RuleSetManage() {
       } else {
         setLoading(true);
       }
-      const [rsRes, ngRes] = await Promise.all([
+      const [rsRes, ngRes, deviceRes] = await Promise.all([
         api.getRuleSets(),
         api.getNodeGroups(),
+        api.getDevices(),
       ]);
       setRuleSets(Array.isArray(rsRes.data) ? rsRes.data : []);
       setNodeGroups(Array.isArray(ngRes.data) ? ngRes.data : []);
+      setDevices(Array.isArray(deviceRes.data) ? deviceRes.data : []);
     } catch {
       Message.error('加载规则集数据失败');
       setRuleSets([]);
       setNodeGroups([]);
+      setDevices([]);
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
   }, []);
 
-  useEffect(() => { loadData(); }, [loadData]);
+  // 系统 Host 单独读取：未配置时接口返回 404，此时视为空串即可，不影响列表加载。
+  const loadSystemHost = useCallback(async () => {
+    try {
+      const res = await api.getSettingByKey(SYSTEM_HOST_SETTING_KEY);
+      setSystemHost(res.data.value || '');
+    } catch {
+      setSystemHost('');
+    }
+  }, []);
+
+  useEffect(() => { loadData(); loadSystemHost(); }, [loadData, loadSystemHost]);
 
   const handleAddRs = () => {
     setRsForm({ ruleSetType: 'local', format: 'source', url: '', downloadDetour: '', ableDevices: '', sort: 0, content: {} });
@@ -139,6 +158,7 @@ export default function RuleSetManage() {
             onEdit={handleEditRs}
             onDelete={handleDeleteRs}
             onChangeOutbound={handleChangeOutbound}
+            onCopyURL={setCopyTarget}
           />
         </DataState>
       </div>
@@ -146,6 +166,14 @@ export default function RuleSetManage() {
       <RuleSetModal visible={rsVisible} title={rsTitle} initialValues={rsForm} nodeGroups={nodeGroups}
         confirmLoading={submitting}
         onOk={handleRsOk} onCancel={() => setRsVisible(false)} />
+
+      <RuleSetCopyURLModal
+        visible={copyTarget !== null}
+        ruleSet={copyTarget}
+        devices={devices}
+        systemHost={systemHost}
+        onCancel={() => setCopyTarget(null)}
+      />
     </>
   );
 }

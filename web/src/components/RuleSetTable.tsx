@@ -12,9 +12,10 @@ interface Props {
   onEdit: (record: RuleSet) => void;
   onDelete: (record: RuleSet) => void;
   onChangeOutbound: (record: RuleSet, newOutbound: string) => void;
+  onCopyURL: (record: RuleSet) => void;
 }
 
-export default function RuleSetTable({ data, nodeGroups, deletingKey, togglingKey, onEdit, onDelete, onChangeOutbound }: Props) {
+export default function RuleSetTable({ data, nodeGroups, deletingKey, togglingKey, onEdit, onDelete, onChangeOutbound, onCopyURL }: Props) {
   return (
     <div style={{ marginBottom: 20 }}>
       <Row gutter={[16, 16]}>
@@ -68,6 +69,9 @@ export default function RuleSetTable({ data, nodeGroups, deletingKey, togglingKe
               <div className="card-footer" style={{ padding: '8px 16px' }}>
                 <div className="card-action-row">
                   <Button type="text" size="small" style={{ fontSize: 12, padding: '0 4px' }} onClick={() => onEdit(item)}>编辑</Button>
+                  {item.ruleSetType !== 'remote' && (
+                    <Button type="text" size="small" style={{ fontSize: 12, padding: '0 4px' }} onClick={() => onCopyURL(item)}>复制地址</Button>
+                  )}
                   <Button
                     type="text"
                     size="small"
