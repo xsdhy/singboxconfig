@@ -73,7 +73,9 @@
 说明：
 
 - 复用 `/open/generate/:device` 的设备解析、启用状态和 token 鉴权
-- 复用订阅缓存刷新、Outbound 设备可见性过滤、节点分组筛选和规则集过滤
+- 复用 Outbound 设备可见性过滤、节点分组筛选和规则集过滤
+- `[Proxy]` 只输出手工维护（MANUAL）节点；订阅节点不展开，每个启用且对设备可见的订阅源输出为一个携带 `policy-path=<订阅地址>` 的 select 策略组，由 Surge 自行拉取订阅（订阅缓存时长分钟数映射为 `update-interval` 秒数），因此生成时不触发订阅缓存刷新
+- 节点分组通过 `include-other-group` 引用订阅策略组，并把 Include/Exclude 关键字翻译为 `policy-regex-filter`
 - `Content-Type` 为 `text/plain`
 - Shadowsocks / Trojan / HTTP(HTTPS) 会完整映射，VMess 做 best-effort 映射
 - WireGuard endpoint 会转换为 Surge 的 `wireguard` 代理与独立 `[WireGuard]` 配置段

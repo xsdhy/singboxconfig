@@ -90,8 +90,9 @@ func (s *Service) Generated(c *gin.Context) {
 }
 
 // SurgeGenerated 按设备输出 Surge 配置文本。
-// 设备解析、启用状态、token 鉴权、订阅缓存刷新与 Outbound 可见性过滤均复用 sing-box 生成链路，
-// 仅在最后一步改为调用 Surge 渲染器，保证两套输出共享同一份数据治理能力。
+// 设备解析、启用状态、token 鉴权与可见性过滤均复用 sing-box 生成链路。
+// 与 sing-box 输出不同：订阅节点不再展开为 [Proxy] 行，而是把订阅地址输出为
+// 携带 policy-path 的策略组，由 Surge 客户端自行拉取订阅；[Proxy] 中只保留手工节点。
 func (s *Service) SurgeGenerated(c *gin.Context) {
 	deviceCode := c.Param("device")
 	token := c.Query("token")
@@ -127,7 +128,14 @@ func (s *Service) SurgeGenerated(c *gin.Context) {
 		return
 	}
 
-	outbounds, err := s.resolveGenerateOutbounds(c.Request.Context(), device.Code)
+	// 只取手工节点：订阅节点改由 Surge 通过 policy-path 拉取订阅地址，不再展开。
+	outbounds, err := s.resolveManualGenerateOutbounds(device.Code)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	subscribes, err := s.resolveVisibleSubscribes(device.Code)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -145,7 +153,7 @@ func (s *Service) SurgeGenerated(c *gin.Context) {
 		return
 	}
 
-	configText := surge.Render(device.Code, device.Token, systemHost, outbounds, endpoints, groupRules, ruleSets)
+	configText := surge.Render(device.Code, device.Token, systemHost, outbounds, endpoints, subscribes, groupRules, ruleSets)
 	c.String(http.StatusOK, configText)
 }
 

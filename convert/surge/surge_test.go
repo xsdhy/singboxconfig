@@ -64,7 +64,7 @@ func TestRenderProxyProtocols(t *testing.T) {
 				ServerName: "https-sni.example.com",
 			},
 		},
-	}, nil, nil, nil)
+	}, nil, nil, nil, nil)
 
 	mustContain(t, cfg, "ss-node = ss, ss.example.com, 8388, encrypt-method=chacha20-ietf-poly1305, password=ss-pass, udp-relay=true, obfs=tls, obfs-host=cdn.example.com, obfs-uri=/")
 	mustContain(t, cfg, "trojan-node = trojan, trojan.example.com, 443, password=trojan-pass, udp-relay=true, tls=true, sni=sni.example.com, skip-cert-verify=true")
@@ -101,7 +101,7 @@ func TestRenderWireGuardEndpoints(t *testing.T) {
 				},
 			},
 		},
-	}, []*entity.NodeGroup{
+	}, nil, []*entity.NodeGroup{
 		{Tag: "general", GroupType: string(entity.NodeGroupTypeSelector)},
 	}, nil)
 
@@ -132,7 +132,7 @@ func TestRenderSkipsUnsupportedProtocolAndKeepsGroupReferencesValid(t *testing.T
 			ServerPort: 443,
 			UUID:       "00000000-0000-0000-0000-000000000001",
 		},
-	}, nil, []*entity.NodeGroup{
+	}, nil, nil, []*entity.NodeGroup{
 		{Tag: "general", GroupType: string(entity.NodeGroupTypeSelector), Include: "香港"},
 	}, nil)
 
@@ -153,7 +153,7 @@ func TestRenderExpandsRuleSets(t *testing.T) {
 			Method:     "aes-128-gcm",
 			Password:   "pass",
 		},
-	}, nil, []*entity.NodeGroup{
+	}, nil, nil, []*entity.NodeGroup{
 		{Tag: "general", GroupType: string(entity.NodeGroupTypeSelector)},
 	}, []*entity.RuleSet{
 		{Tag: "remote", RuleSetType: string(entity.RuleSetTypeRemote), URL: "https://example.com/remote.list", Outbound: "general", Sort: 10},
@@ -190,10 +190,10 @@ func TestRenderProxyGroupDeviceTypeOverride(t *testing.T) {
 		{Tag: "general", GroupType: string(entity.NodeGroupTypeSelector), Include: "香港", DeviceTypeOverrides: "gateway:urltest"},
 	}
 
-	gatewayCfg := Render("gateway", "", "", outbounds, nil, groups, nil)
+	gatewayCfg := Render("gateway", "", "", outbounds, nil, nil, groups, nil)
 	mustContain(t, gatewayCfg, "general = url-test, 香港01, url=https://www.gstatic.com/generate_204, interval=600, tolerance=50")
 
-	phoneCfg := Render("phone", "", "", outbounds, nil, groups, nil)
+	phoneCfg := Render("phone", "", "", outbounds, nil, nil, groups, nil)
 	mustContain(t, phoneCfg, "general = select, 香港01\n")
 	mustNotContain(t, phoneCfg, "url-test")
 }
@@ -211,7 +211,7 @@ func TestRenderSkipsRuleWithUnknownOutbound(t *testing.T) {
 			Method:     "aes-128-gcm",
 			Password:   "pass",
 		},
-	}, nil, []*entity.NodeGroup{
+	}, nil, nil, []*entity.NodeGroup{
 		{Tag: "general", GroupType: string(entity.NodeGroupTypeSelector)},
 	}, []*entity.RuleSet{
 		{Tag: "ok-group", RuleSetType: string(entity.RuleSetTypeLocal), Content: ruleContent, Outbound: "general", Sort: 10},
@@ -248,7 +248,7 @@ func mustNotContain(t *testing.T, text string, unexpected string) {
 func TestRenderLocalRuleSetURLReference(t *testing.T) {
 	cfg := Render("iphone 15", "tok en", "https://config.example.com/", []entity.SingBoxOut{
 		{Tag: "香港01", Type: string(entity.OutboundProtocolShadowsocks), Server: "hk.example.com", ServerPort: 8388, Method: "aes-128-gcm", Password: "pass"},
-	}, nil, []*entity.NodeGroup{
+	}, nil, nil, []*entity.NodeGroup{
 		{Tag: "general", GroupType: string(entity.NodeGroupTypeSelector), Include: "香港"},
 	}, []*entity.RuleSet{
 		{Tag: "geosite-cn", RuleSetType: string(entity.RuleSetTypeLocal), Outbound: "general", Content: `{"version":1,"rules":[{"domain_suffix":["cn"]}]}`},
@@ -267,7 +267,7 @@ func TestRenderLocalRuleSetURLReference(t *testing.T) {
 func TestRenderLocalRuleSetFallbackExpand(t *testing.T) {
 	cfg := Render("phone", "", "", []entity.SingBoxOut{
 		{Tag: "香港01", Type: string(entity.OutboundProtocolShadowsocks), Server: "hk.example.com", ServerPort: 8388, Method: "aes-128-gcm", Password: "pass"},
-	}, nil, []*entity.NodeGroup{
+	}, nil, nil, []*entity.NodeGroup{
 		{Tag: "general", GroupType: string(entity.NodeGroupTypeSelector), Include: "香港"},
 	}, []*entity.RuleSet{
 		{Tag: "geosite-cn", RuleSetType: string(entity.RuleSetTypeLocal), Outbound: "general", Content: `{"version":1,"rules":[{"domain_suffix":["cn"]}]}`},
@@ -276,4 +276,50 @@ func TestRenderLocalRuleSetFallbackExpand(t *testing.T) {
 	if !strings.Contains(cfg, "DOMAIN-SUFFIX,cn,general") {
 		t.Errorf("expected expanded rule when system host empty:\n%s", cfg)
 	}
+}
+
+// TestRenderSubscriptionPolicyPath 验证订阅源输出为携带 policy-path 的 select 策略组，
+// 订阅节点不展开为 [Proxy] 行；节点分组通过 include-other-group 引用订阅策略组，
+// 并把 Include/Exclude 关键字翻译为 policy-regex-filter。
+func TestRenderSubscriptionPolicyPath(t *testing.T) {
+	cfg := Render("phone", "", "", []entity.SingBoxOut{
+		{
+			Type:       string(entity.OutboundProtocolShadowsocks),
+			Tag:        "manual-node",
+			Server:     "manual.example.com",
+			ServerPort: 8388,
+			Method:     "aes-128-gcm",
+			Password:   "pass",
+		},
+	}, nil, []*entity.Subscribe{
+		{Name: "provider-a", URL: "https://sub.example.com/a", Status: true, OutboundCacheDuration: 30},
+		{Name: "provider-disabled", URL: "https://sub.example.com/b", Status: false},
+		{Name: "provider-invisible", URL: "https://sub.example.com/c", Status: true, VisibleDevices: "tv"},
+	}, []*entity.NodeGroup{
+		{Tag: "general", GroupType: string(entity.NodeGroupTypeSelector), Include: "香港,manual", Exclude: "过期"},
+	}, nil)
+
+	// 订阅策略组：policy-path 指向订阅地址，缓存时长（分钟）映射为 update-interval（秒）。
+	mustContain(t, cfg, "provider-a = select, policy-path=https://sub.example.com/a, update-interval=1800")
+	// 禁用或对设备不可见的订阅不输出。
+	mustNotContain(t, cfg, "provider-disabled")
+	mustNotContain(t, cfg, "provider-invisible")
+	// 手工节点仍展开为 [Proxy] 行。
+	mustContain(t, cfg, "manual-node = ss, manual.example.com, 8388")
+	// 节点分组引用订阅策略组并携带正则过滤。
+	mustContain(t, cfg, "include-other-group=provider-a")
+	mustContain(t, cfg, "policy-regex-filter=^(?!.*(过期)).*(香港|manual)")
+}
+
+// TestRenderSubscriptionOnlyGroup 验证没有任何手工节点命中时，
+// 只要存在订阅策略组，节点分组仍然输出（成员完全来自 include-other-group）。
+func TestRenderSubscriptionOnlyGroup(t *testing.T) {
+	cfg := Render("phone", "", "", nil, nil, []*entity.Subscribe{
+		{Name: "provider-a", URL: "https://sub.example.com/a", Status: true},
+	}, []*entity.NodeGroup{
+		{Tag: "general", GroupType: string(entity.NodeGroupTypeSelector), Include: "香港"},
+	}, nil)
+
+	mustContain(t, cfg, "provider-a = select, policy-path=https://sub.example.com/a")
+	mustContain(t, cfg, "general = select, include-other-group=provider-a, policy-regex-filter=(香港)")
 }

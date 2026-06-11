@@ -86,8 +86,8 @@ HTTP 拉取逻辑位于 `service/outbound_cache.go`：
 
 - 已接入订阅解析链路：`ss`、`ssr`、`trojan`、`vmess`、`vless`
 - sing-box 输出会保留这些统一 Outbound
-- Surge 输出不导出 SSR / VLESS，会跳过并记录 warning
-- Shadowrocket 输出会导出 SSR / VLESS，因此能覆盖比 Surge 更完整的订阅节点
+- Surge 输出不展开订阅节点：每个订阅源输出为携带 `policy-path=<订阅地址>` 的策略组，由 Surge 客户端自行拉取订阅（详见 [requirements/implemented/surge-subscription-policy-path.md](../requirements/implemented/surge-subscription-policy-path.md)）；手工节点中 Surge 不导出 SSR / VLESS，会跳过并记录 warning
+- Shadowrocket 不支持 `policy-path`，输出仍展开订阅缓存节点，会导出 SSR / VLESS，因此能覆盖比 Surge 手工节点更完整的协议
 
 另外还有几个实现边界：
 

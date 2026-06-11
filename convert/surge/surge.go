@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
+	"regexp"
 	"singboxconfig/convert/common"
 	"singboxconfig/convert/ruleset"
 	"singboxconfig/entity"
@@ -81,6 +82,8 @@ type renderContext struct {
 	proxyTags []string
 	// groupNames 记录节点分组 tag 到 Surge 策略组名称的映射。
 	groupNames map[string]string
+	// subscriptionGroupNames 按导出顺序记录订阅策略组名称，供节点分组通过 include-other-group 引用。
+	subscriptionGroupNames []string
 	// wireGuardSections 按导出顺序记录 WireGuard 独立配置段文本，追加到配置末尾。
 	wireGuardSections []string
 	// warnings 收集可降级问题，统一写入日志，避免中断整体配置生成。
@@ -88,12 +91,17 @@ type renderContext struct {
 }
 
 // Render 将统一中间数据渲染为 Surge INI 风格配置文本。
-// 入参全部来自现有生成链路：统一 Outbound、WireGuard endpoint、NodeGroup 与 RuleSet，
+// 入参全部来自现有生成链路：统一 Outbound、WireGuard endpoint、订阅源、NodeGroup 与 RuleSet，
 // 函数内部只做纯转换，便于对协议映射、分组一致性和规则展开做单元测试。
+//
+// outbounds 只应包含手工维护节点：订阅节点不再逐条展开为 [Proxy] 行，
+// 而是为每个订阅生成一个携带 policy-path=<订阅地址> 的策略组，由 Surge 自行拉取订阅，
+// 节点分组再通过 include-other-group 引用订阅策略组，并用 policy-regex-filter
+// 还原 Include/Exclude 关键字过滤语义。
 //
 // deviceToken 与 systemHost 用于把 local / inline 规则集改为单行 RULE-SET,<url>,<policy> 引用：
 // systemHost 非空且内容可解析时输出 URL 引用，否则回退到逐条展开，保证旧部署零配置可用。
-func Render(deviceCode string, deviceToken string, systemHost string, outbounds []entity.SingBoxOut, endpoints []entity.SingEndpointWireguard, groups []*entity.NodeGroup, ruleSets []*entity.RuleSet) string {
+func Render(deviceCode string, deviceToken string, systemHost string, outbounds []entity.SingBoxOut, endpoints []entity.SingEndpointWireguard, subscribes []*entity.Subscribe, groups []*entity.NodeGroup, ruleSets []*entity.RuleSet) string {
 	ctx := &renderContext{
 		proxyNames: make(map[string]string),
 		groupNames: make(map[string]string),
@@ -101,7 +109,8 @@ func Render(deviceCode string, deviceToken string, systemHost string, outbounds 
 
 	proxyLines := renderProxySection(ctx, outbounds)
 	proxyLines = append(proxyLines, renderWireGuardProxyLines(ctx, endpoints)...)
-	groupLines := renderProxyGroupSection(ctx, deviceCode, groups)
+	subscriptionGroupLines := renderSubscriptionGroupSection(ctx, deviceCode, subscribes)
+	groupLines := append(subscriptionGroupLines, renderProxyGroupSection(ctx, deviceCode, groups)...)
 	ruleLines := renderRuleSection(ctx, deviceCode, deviceToken, systemHost, ruleSets)
 	ctx.flushWarnings()
 
@@ -449,7 +458,8 @@ func renderProxyGroupSection(ctx *renderContext, deviceCode string, groups []*en
 			continue
 		}
 		members := common.FilterOutboundGroupTags(group, tags)
-		if len(members) == 0 {
+		// 没有任何手工节点命中且没有订阅策略组可引用时，跳过空分组。
+		if len(members) == 0 && len(ctx.subscriptionGroupNames) == 0 {
 			continue
 		}
 		groupName := policyName(group.Tag)
@@ -459,10 +469,18 @@ func renderProxyGroupSection(ctx *renderContext, deviceCode string, groups []*en
 		// 避免设备覆盖为 urltest 时类型变了但探测参数缺失。
 		groupType := common.ResolveGroupType(group, deviceCode)
 
-		lineMembers := make([]string, 0, len(members)+4)
+		lineMembers := make([]string, 0, len(members)+6)
 		lineMembers = append(lineMembers, groupName+" = "+string(resolveSurgeGroupType(groupType)))
 		for _, tag := range members {
 			lineMembers = append(lineMembers, ctx.proxyNames[tag])
+		}
+		// 订阅节点不再展开成 [Proxy] 行，这里通过 include-other-group 引用订阅策略组，
+		// 并用 policy-regex-filter 还原 Include/Exclude 关键字过滤语义。
+		if len(ctx.subscriptionGroupNames) > 0 {
+			lineMembers = append(lineMembers, keyValue("include-other-group", strings.Join(ctx.subscriptionGroupNames, ",")))
+			if filter := buildPolicyRegexFilter(group.Include, group.Exclude); filter != "" {
+				lineMembers = append(lineMembers, keyValue("policy-regex-filter", filter))
+			}
 		}
 		if groupType == entity.NodeGroupTypeURLTest {
 			testURL := strings.TrimSpace(group.TestURL)
@@ -474,6 +492,76 @@ func renderProxyGroupSection(ctx *renderContext, deviceCode string, groups []*en
 		lines = append(lines, strings.Join(lineMembers, ", "))
 	}
 	return lines
+}
+
+// renderSubscriptionGroupSection 把每个订阅源渲染为一个携带 policy-path 的 select 策略组，
+// 由 Surge 客户端自行拉取订阅地址，服务端不再展开订阅节点。
+// 订阅的缓存时长（分钟）映射为 Surge 的 update-interval（秒）。
+func renderSubscriptionGroupSection(ctx *renderContext, deviceCode string, subscribes []*entity.Subscribe) []string {
+	lines := make([]string, 0, len(subscribes))
+	for _, subscribe := range subscribes {
+		if subscribe == nil || !subscribe.Status || !isSubscribeVisibleForDevice(subscribe, deviceCode) {
+			continue
+		}
+		if strings.TrimSpace(subscribe.URL) == "" {
+			ctx.warnf("Surge subscription missing url, skip: name=%s", subscribe.Name)
+			continue
+		}
+		name := policyName(subscribe.Name)
+		if name == "" {
+			ctx.warnf("Surge subscription missing name, skip: url=%s", subscribe.URL)
+			continue
+		}
+		if _, exists := ctx.proxyNames[subscribe.Name]; exists {
+			ctx.warnf("Surge subscription name conflicts with proxy, skip: name=%s", name)
+			continue
+		}
+		parts := []string{
+			name + " = " + string(surgeGroupSelect),
+			keyValue("policy-path", subscribe.URL),
+		}
+		if subscribe.OutboundCacheDuration > 0 {
+			parts = append(parts, keyValue("update-interval", strconv.Itoa(subscribe.OutboundCacheDuration*60)))
+		}
+		ctx.subscriptionGroupNames = append(ctx.subscriptionGroupNames, name)
+		lines = append(lines, strings.Join(parts, ", "))
+	}
+	return lines
+}
+
+// buildPolicyRegexFilter 把节点分组的 Include/Exclude 关键字翻译成 Surge 的 policy-regex-filter 正则。
+// Include 关键字之间为“或”关系，Exclude 通过负向先行断言剔除；关键字本身做正则转义，
+// 与 FilterOutboundGroupTags 的子串匹配语义保持一致。两者皆空时返回空串表示不过滤。
+func buildPolicyRegexFilter(include string, exclude string) string {
+	includes := quoteKeywords(include)
+	excludes := quoteKeywords(exclude)
+	switch {
+	case len(includes) == 0 && len(excludes) == 0:
+		return ""
+	case len(excludes) == 0:
+		return "(" + strings.Join(includes, "|") + ")"
+	case len(includes) == 0:
+		return "^(?!.*(" + strings.Join(excludes, "|") + "))"
+	default:
+		return "^(?!.*(" + strings.Join(excludes, "|") + ")).*(" + strings.Join(includes, "|") + ")"
+	}
+}
+
+// quoteKeywords 拆分逗号分隔关键字并做正则转义，忽略空白项。
+func quoteKeywords(raw string) []string {
+	if strings.TrimSpace(raw) == "" {
+		return nil
+	}
+	parts := strings.Split(raw, ",")
+	result := make([]string, 0, len(parts))
+	for _, part := range parts {
+		item := strings.TrimSpace(part)
+		if item == "" {
+			continue
+		}
+		result = append(result, regexp.QuoteMeta(item))
+	}
+	return result
 }
 
 func exportedProxyTags(ctx *renderContext) []string {
@@ -535,6 +623,19 @@ func renderRuleSection(ctx *renderContext, deviceCode string, deviceToken string
 
 func isRuleSetVisibleForDevice(ruleSet *entity.RuleSet, deviceCode string) bool {
 	return strings.TrimSpace(ruleSet.AbleDevices) == "" || strings.Contains(ruleSet.AbleDevices, deviceCode)
+}
+
+// isSubscribeVisibleForDevice 复用订阅源的逗号分隔设备可见性规则。
+func isSubscribeVisibleForDevice(subscribe *entity.Subscribe, deviceCode string) bool {
+	if strings.TrimSpace(subscribe.VisibleDevices) == "" {
+		return true
+	}
+	for _, item := range strings.Split(subscribe.VisibleDevices, ",") {
+		if strings.TrimSpace(item) == deviceCode {
+			return true
+		}
+	}
+	return false
 }
 
 type singBoxRuleSetContent struct {

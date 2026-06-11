@@ -176,6 +176,47 @@ func (s *Service) resolveGenerateOutbounds(ctx context.Context, deviceCode strin
 	return singbox.GetOutbounds(singbox.GetExtraOutbounds(deviceCode, items), groupRules, deviceCode), nil
 }
 
+// resolveManualGenerateOutbounds 返回设备可见且启用的手工 Outbound（不含订阅缓存节点）。
+// Surge 输出链路使用：订阅节点改由 Surge 通过 policy-path 自行拉取订阅地址，
+// 因此这里不触发订阅缓存刷新，也不把订阅缓存节点展开进配置。
+func (s *Service) resolveManualGenerateOutbounds(deviceCode string) ([]entity.SingBoxOut, error) {
+	items, err := s.storage.GetOutboundsByDevice(deviceCode)
+	if err != nil {
+		return nil, err
+	}
+
+	manualItems := make([]*entity.Outbound, 0, len(items))
+	for _, item := range items {
+		if item == nil || item.Source == entity.OutboundSourceSubscription {
+			continue
+		}
+		manualItems = append(manualItems, item)
+	}
+
+	// 兼容历史默认行为：当存储中完全没有任何 Outbound 时，仍保留默认手工节点兜底。
+	if len(items) == 0 {
+		manualItems = singbox.GetDefaultExtraOutbounds()
+	}
+
+	return singbox.GetExtraOutbounds(deviceCode, manualItems), nil
+}
+
+// resolveVisibleSubscribes 返回启用且对当前设备可见的订阅源，供 Surge 输出为 policy-path 策略组。
+func (s *Service) resolveVisibleSubscribes(deviceCode string) ([]*entity.Subscribe, error) {
+	subscribes, err := s.storage.ListSubscribes()
+	if err != nil {
+		return nil, err
+	}
+	result := make([]*entity.Subscribe, 0, len(subscribes))
+	for _, subscribe := range subscribes {
+		if subscribe == nil || !subscribe.Status || !isDeviceVisible(deviceCode, subscribe.VisibleDevices) {
+			continue
+		}
+		result = append(result, subscribe)
+	}
+	return result, nil
+}
+
 func (s *Service) fetchSubscriptionOutbounds(ctx context.Context, subscribe *entity.Subscribe) ([]*entity.Outbound, time.Time, error) {
 	body, err := s.httpGetBytes(ctx, subscribe.URL, subscribe.UserAgent)
 	if err != nil {
