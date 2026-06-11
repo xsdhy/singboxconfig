@@ -64,6 +64,31 @@ func TestRenderProxyProtocols(t *testing.T) {
 				ServerName: "https-sni.example.com",
 			},
 		},
+		{
+			Type:       string(entity.OutboundProtocolSocks),
+			Tag:        "socks-node",
+			Server:     "127.0.0.1",
+			ServerPort: 11080,
+		},
+		{
+			Type:       string(entity.OutboundProtocolSocks),
+			Tag:        "socks-auth-node",
+			Server:     "socks.example.com",
+			ServerPort: 1080,
+			Username:   "socks-user",
+			Password:   "socks-pass",
+		},
+		{
+			Type:       string(entity.OutboundProtocolSocks),
+			Tag:        "socks-tls-node",
+			Server:     "socks-tls.example.com",
+			ServerPort: 443,
+			TLS: &entity.SingTLS{
+				Enabled:    true,
+				ServerName: "socks-sni.example.com",
+				Insecure:   true,
+			},
+		},
 	}, nil, nil, nil, nil)
 
 	mustContain(t, cfg, "ss-node = ss, ss.example.com, 8388, encrypt-method=chacha20-ietf-poly1305, password=ss-pass, udp-relay=true, obfs=tls, obfs-host=cdn.example.com, obfs-uri=/")
@@ -71,6 +96,9 @@ func TestRenderProxyProtocols(t *testing.T) {
 	mustContain(t, cfg, "vmess-node = vmess, vmess.example.com, 443, username=0233d11c-15a4-47d3-ade3-48ffca0ce119, encrypt-method=aes-128-gcm, tls=true, sni=vmess-sni.example.com, ws=true, ws-path=/ws, ws-headers=Host:host.example.com")
 	mustContain(t, cfg, "http-node = http, http.example.com, 8080, username=http-user, password=http-pass")
 	mustContain(t, cfg, "https-node = https, https.example.com, 443, username=https-user, password=https-pass, tls=true, sni=https-sni.example.com")
+	mustContain(t, cfg, "socks-node = socks5, 127.0.0.1, 11080, udp-relay=true")
+	mustContain(t, cfg, "socks-auth-node = socks5, socks.example.com, 1080, socks-user, socks-pass, udp-relay=true")
+	mustContain(t, cfg, "socks-tls-node = socks5-tls, socks-tls.example.com, 443, udp-relay=true, sni=socks-sni.example.com, skip-cert-verify=true")
 }
 
 func TestRenderWireGuardEndpoints(t *testing.T) {

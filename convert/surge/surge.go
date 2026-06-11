@@ -39,6 +39,10 @@ const (
 	surgeProxyHTTP surgeProxyProtocol = "http"
 	// surgeProxyHTTPS 表示 Surge TLS HTTP 代理协议关键字。
 	surgeProxyHTTPS surgeProxyProtocol = "https"
+	// surgeProxySocks5 表示 Surge 明文 SOCKS5 代理协议关键字。
+	surgeProxySocks5 surgeProxyProtocol = "socks5"
+	// surgeProxySocks5TLS 表示 Surge TLS SOCKS5 代理协议关键字。
+	surgeProxySocks5TLS surgeProxyProtocol = "socks5-tls"
 	// surgeProxyWireGuard 表示 Surge WireGuard 代理协议关键字。
 	surgeProxyWireGuard surgeProxyProtocol = "wireguard"
 )
@@ -291,6 +295,8 @@ func renderProxyLine(ctx *renderContext, outbound entity.SingBoxOut) (string, st
 		return renderVMessLine(ctx, outbound)
 	case entity.OutboundProtocolHTTP:
 		return renderHTTPLine(ctx, outbound)
+	case entity.OutboundProtocolSocks:
+		return renderSocksLine(ctx, outbound)
 	case entity.OutboundProtocolVLESS, entity.OutboundProtocolHysteria, entity.OutboundProtocolHysteria2, entity.OutboundProtocolTUIC:
 		ctx.warnf("Surge unsupported outbound protocol, skip: tag=%s type=%s", outbound.Tag, outbound.Type)
 		return "", "", false
@@ -389,6 +395,43 @@ func renderHTTPLine(ctx *renderContext, outbound entity.SingBoxOut) (string, str
 		parts = append(parts, keyValue("password", outbound.Password))
 	}
 	appendTLSParameters(&parts, outbound.TLS)
+	return strings.Join(parts, ", "), name, true
+}
+
+func renderSocksLine(ctx *renderContext, outbound entity.SingBoxOut) (string, string, bool) {
+	name, ok := validateProxyBasics(ctx, outbound)
+	if !ok {
+		return "", "", false
+	}
+	// sing-box 的 socks 出站不带 version 时默认 SOCKS5；Surge 不支持 SOCKS4，仅在显式声明旧版本时跳过。
+	if outbound.Version != 0 && outbound.Version != 5 {
+		ctx.warnf("Surge only supports socks5, skip: tag=%s version=%d", outbound.Tag, outbound.Version)
+		return "", "", false
+	}
+	protocol := surgeProxySocks5
+	if outbound.TLS != nil && outbound.TLS.Enabled {
+		protocol = surgeProxySocks5TLS
+	}
+	parts := []string{
+		name + " = " + string(protocol),
+		outbound.Server,
+		strconv.Itoa(outbound.ServerPort),
+	}
+	// Surge 的 socks5 用户名密码为位置参数，必须成对出现。
+	if outbound.Username != "" && outbound.Password != "" {
+		parts = append(parts, outbound.Username, outbound.Password)
+	} else if outbound.Username != "" || outbound.Password != "" {
+		ctx.warnf("Surge socks5 outbound requires both username and password, auth dropped: tag=%s", outbound.Tag)
+	}
+	parts = append(parts, keyValue("udp-relay", "true"))
+	if outbound.TLS != nil && outbound.TLS.Enabled {
+		if outbound.TLS.ServerName != "" {
+			parts = append(parts, keyValue("sni", outbound.TLS.ServerName))
+		}
+		if outbound.TLS.Insecure {
+			parts = append(parts, keyValue("skip-cert-verify", "true"))
+		}
+	}
 	return strings.Join(parts, ", "), name, true
 }
 

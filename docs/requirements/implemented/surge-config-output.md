@@ -42,6 +42,7 @@
 | Shadowsocks (ss) | ✅ | ✅ | 完整映射 |
 | Trojan | ✅ | ✅ | 完整映射 |
 | HTTP / HTTPS | ✅ | ✅ | 完整映射（依据 `tls.enabled` 区分 http/https） |
+| SOCKS (socks5) | ✅（`type: socks`，默认 v5） | ✅（关键字 `socks5` / `socks5-tls`） | 完整映射（依据 `tls.enabled` 区分；显式 version≠5 时跳过 + warning） |
 | VMess | ✅ | ⚠️ 仅 Surge 4+，功能受限 | best-effort，标注限制 |
 | VLESS | ✅ | ❌ | 跳过 + warning |
 | Hysteria / Hysteria2 | ✅ | ❌ | 跳过 + warning |
@@ -50,7 +51,7 @@
 
 > 已确认当前订阅节点以 **SS / Trojan 为主**，因此协议覆盖足以承载实际节点，跳过的协议不构成阻塞。
 
-> 增量说明：在首版基础上后续补充了 **HTTP/HTTPS 节点导出**、**WireGuard endpoint 导出**，并把 `[General]` 的 `ipv6` 默认值改为 `false`（关闭 IPv6）。
+> 增量说明：在首版基础上后续补充了 **HTTP/HTTPS 节点导出**、**WireGuard endpoint 导出**、**SOCKS5 节点导出**（sing-box 的 `type: socks` 兼容映射为 Surge 的 `socks5` / `socks5-tls`），并把 `[General]` 的 `ipv6` 默认值改为 `false`（关闭 IPv6）。
 
 ## 方案结论
 

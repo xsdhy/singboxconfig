@@ -25,6 +25,8 @@ const (
 	OutboundProtocolTUIC OutboundProtocol = "tuic"
 	// OutboundProtocolDirect 表示直连出站，用于 Surge 内置 DIRECT 策略。
 	OutboundProtocolDirect OutboundProtocol = "direct"
+	// OutboundProtocolSocks 表示 SOCKS 出站，sing-box 中不带 version 时默认为 SOCKS5，Surge 中映射为 socks5。
+	OutboundProtocolSocks OutboundProtocol = "socks"
 )
 
 // NodeGroupType 表示节点分组的策略类型。
