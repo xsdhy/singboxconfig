@@ -60,7 +60,9 @@ func TestRenderLinesFieldMapping(t *testing.T) {
 		"domain_keyword":["key"],
 		"domain_regex":["^c.*"],
 		"ip_cidr":["1.2.3.0/24","2001:db8::/32"],
-		"geoip":["cn"]
+		"geoip":["cn"],
+		"process_name":["WeChat"],
+		"process_path":["/Applications/QoderWork CN.app/Contents/MacOS/QoderWork CN","/Applications/WeChat.app/Contents/MacOS/WeChat"]
 	}]}`
 	lines, warnings, err := RenderLines(content)
 	if err != nil {
@@ -76,7 +78,10 @@ func TestRenderLinesFieldMapping(t *testing.T) {
 		"DOMAIN-REGEX,^c.*",
 		"IP-CIDR,1.2.3.0/24",
 		"IP-CIDR6,2001:db8::/32",
-		"GEOIP,CN",
+		"GEOIP,CN,no-resolve",
+		"PROCESS-NAME,WeChat",
+		"PROCESS-NAME,\"/Applications/QoderWork CN.app/Contents/MacOS/QoderWork CN\"",
+		"PROCESS-NAME,\"/Applications/WeChat.app/Contents/MacOS/WeChat\"",
 	}
 	if !reflect.DeepEqual(lines, want) {
 		t.Errorf("lines = %#v\nwant %#v", lines, want)
@@ -108,11 +113,27 @@ func TestRenderLinesInvalidContent(t *testing.T) {
 	}
 }
 
-// TestBuildRuleSetURL 验证 URL 拼接对特殊字符正确转义，并去掉 systemHost 尾部斜杠。
+// TestBuildRuleSetURL 验证 URL 拼接对特殊字符正确转义，路径只保留 tag，software / device / token 走 query 参数。
 func TestBuildRuleSetURL(t *testing.T) {
 	got := BuildRuleSetURL("https://config.example.com/", "geosite cn", entity.SoftwareSingbox, "iphone/15", "a?b c")
-	want := "https://config.example.com/open/rules/geosite%20cn/singbox/iphone%2F15?token=a%3Fb+c"
+	want := "https://config.example.com/open/rules/geosite%20cn?device=iphone%2F15&software=singbox&token=a%3Fb+c"
 	if got != want {
 		t.Errorf("BuildRuleSetURL = %q\nwant %q", got, want)
+	}
+}
+
+// TestCountLines 验证规则条数按展开后的逐行规则计数，且内容非法时返回 error。
+func TestCountLines(t *testing.T) {
+	// 1 个规则对象、2 个域名后缀 → 2 条。
+	count, err := CountLines(`{"version":1,"rules":[{"domain_suffix":["a.com","b.com"]}]}`)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if count != 2 {
+		t.Errorf("count = %d, want 2", count)
+	}
+
+	if _, err := CountLines("not-json"); err == nil {
+		t.Errorf("expected error for invalid content")
 	}
 }

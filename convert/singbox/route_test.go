@@ -1,6 +1,7 @@
 package singbox
 
 import (
+	"encoding/json"
 	"singboxconfig/entity"
 	"strings"
 	"testing"
@@ -48,14 +49,14 @@ func TestGetRouteSkipsRuleWithUnknownOutbound(t *testing.T) {
 	}
 }
 
-// TestGetRouteLocalRuleSetURLReference 验证配置系统 Host 后，
-// local 规则集输出为 type:"remote"、format:"source"，且 URL 指向本服务 open 接口并正确转义。
+// TestGetRouteLocalRuleSetURLReference 验证配置系统 Host 后，规则条数达到阈值的
+// local 规则集输出为 type:"remote"、format:"source"，且 URL 指向本服务 open 接口并正确转义（software / device 走 query）。
 func TestGetRouteLocalRuleSetURLReference(t *testing.T) {
 	outbounds := []entity.SingBoxOut{
 		{Tag: "general", Type: string(entity.NodeGroupTypeSelector)},
 	}
 	ruleSets := []*entity.RuleSet{
-		{Tag: "geosite-cn", RuleSetType: string(entity.RuleSetTypeLocal), Outbound: "general", Content: `{"version":1,"rules":[{"domain_suffix":["cn"]}]}`},
+		{Tag: "geosite-cn", RuleSetType: string(entity.RuleSetTypeLocal), Outbound: "general", Content: `{"version":1,"rules":[{"domain_suffix":["cn","com","net"]}]}`},
 	}
 
 	route := GetRoute("iphone 15", "tok en", "https://config.example.com/", ruleSets, outbounds)
@@ -67,9 +68,42 @@ func TestGetRouteLocalRuleSetURLReference(t *testing.T) {
 	if rs.Type != "remote" || rs.Format != "source" {
 		t.Errorf("rule_set type/format = %q/%q, want remote/source", rs.Type, rs.Format)
 	}
-	wantURL := "https://config.example.com/open/rules/geosite-cn/singbox/iphone%2015?token=tok+en"
+	wantURL := "https://config.example.com/open/rules/geosite-cn?device=iphone+15&software=singbox&token=tok+en"
 	if rs.URL != wantURL {
 		t.Errorf("rule_set url = %q\nwant %q", rs.URL, wantURL)
+	}
+}
+
+// TestGetRouteLocalRuleSetInlineBelowThreshold 验证即便配置了系统 Host，规则条数少于阈值的
+// local 规则集仍回退为 inline 内联，而不是输出指向 open 接口的远程 URL 引用。
+func TestGetRouteLocalRuleSetInlineBelowThreshold(t *testing.T) {
+	outbounds := []entity.SingBoxOut{
+		{Tag: "general", Type: string(entity.NodeGroupTypeSelector)},
+	}
+	ruleSets := []*entity.RuleSet{
+		{Tag: "geosite-cn", RuleSetType: string(entity.RuleSetTypeLocal), Outbound: "general", Content: `{"version":1,"rules":[{"domain_suffix":["cn","com"]}]}`},
+	}
+
+	route := GetRoute("iphone 15", "tok en", "https://config.example.com/", ruleSets, outbounds)
+
+	if len(route.RuleSet) != 1 {
+		t.Fatalf("rule_set len = %d, want 1", len(route.RuleSet))
+	}
+	if route.RuleSet[0].Type != "inline" {
+		t.Errorf("rule_set below threshold type = %q, want inline", route.RuleSet[0].Type)
+	}
+	if strings.TrimSpace(route.RuleSet[0].URL) != "" {
+		t.Errorf("inline rule_set should not carry url, got %q", route.RuleSet[0].URL)
+	}
+	// inline 规则集的 rules 必须是剥离外层包装后的规则数组，而不是带 version 的整份对象，
+	// 否则 sing-box 无法识别。
+	gotRules, err := json.Marshal(route.RuleSet[0].Rules)
+	if err != nil {
+		t.Fatalf("marshal inline rules: %v", err)
+	}
+	wantRules := `[{"domain_suffix":["cn","com"]}]`
+	if string(gotRules) != wantRules {
+		t.Errorf("inline rules = %s\nwant %s", gotRules, wantRules)
 	}
 }
 

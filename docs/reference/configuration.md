@@ -127,7 +127,7 @@
 ### `system_host`
 
 - 含义：本服务对外可访问的基础地址，如 `https://config.example.com`
-- 用途：生成整份配置时，把有效的 local / inline 规则集由“展开/内联”改为指向本服务规则集 open 接口（`/open/rules/:tag/:software/:device`）的远程 URL 引用
+- 用途：生成整份配置时，把有效且规则条数 ≥ 3 的 local / inline 规则集由“展开/内联”改为指向本服务规则集 open 接口（`/open/rules/:tag?software=...&device=...&token=...`）的远程 URL 引用（条数少于 3 时仍直接展开/内联）
 - 取值约束：
   - 必须是合法的 `http` / `https` 绝对地址；保存时会校验，非法值直接拒绝（返回 400）
   - 读取与保存都会去掉首尾空白与尾部斜杠

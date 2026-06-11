@@ -111,7 +111,7 @@ func SetupRouter(service *service.Service) *gin.Engine {
 	r.GET("/open/surge/:device", service.SurgeGenerated)
 	r.GET("/open/shadowrocket/:device", service.ShadowrocketGenerated)
 	r.GET("/open/ruleset/:tag", service.GetRuleSetByTag)
-	r.GET("/open/rules/:tag/:software/:device", service.GetRulesBySoftware)
+	r.GET("/open/rules/:tag", service.GetRulesBySoftware)
 	r.GET("/", func(c *gin.Context) { c.Data(http.StatusOK, "text/html; charset=utf-8", indexHTML) })
 
 	r.NoRoute(func(c *gin.Context) {

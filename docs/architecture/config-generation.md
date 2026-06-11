@@ -21,7 +21,7 @@ Surge 输出复用同一套设备解析、token 鉴权、DNS 读取、订阅缓�
 
 Shadowrocket 输出同样复用这套数据层能力，最后由 `convert/shadowrocket` 渲染为 INI 风格文本。相比 Surge，它额外覆盖 ShadowsocksR、VLESS，并对 Hysteria2、TUIC 做 best-effort 映射；第一版同样不导出 Inbound 与 WireGuard endpoint。
 
-此外还有一条“规则集级”输出链路 `GET /open/rules/:tag/:software/:device?token=...`（`service/generated.go` 之外的 `GetRulesBySoftware`），它只输出**单个规则集**在目标软件下的规则内容（不是整份配置）。配置合法的全局设置 `system_host` 后，上述三条整份配置链路会把有效的本地规则集改为引用该接口的远程 URL，详见[规则集管理](../modules/rule-set.md)与[API 文档](../reference/api-reference.md)。
+此外还有一条“规则集级”输出链路 `GET /open/rules/:tag?software=...&device=...&token=...`（`service/generated.go` 之外的 `GetRulesBySoftware`），它只输出**单个规则集**在目标软件下的规则内容（不是整份配置）。配置合法的全局设置 `system_host` 后，上述三条整份配置链路会把有效且规则条数 ≥ 3 的本地规则集改为引用该接口的远程 URL（条数少于 3 时仍直接展开/内联），详见[规则集管理](../modules/rule-set.md)与[API 文档](../reference/api-reference.md)。
 
 这个流程不是简单地“读数据库后原样返回”，而是一个逐步组装过程：
 
@@ -283,8 +283,8 @@ Shadowrocket 输出同样复用这套数据层能力，最后由 `convert/shadow
 
 - `remote` -> 输出远程规则集，包含 `format`、`url`、`download_detour`
 - `local` / `inline`：
-  - `system_host` 已配置且 `Content` 可规范化 -> 输出 `type:"remote"`、`format:"source"`、`url` 指向本服务规则集 open 接口 `.../open/rules/<tag>/singbox/<device>?token=<token>`（URL 由 `convert/ruleset.BuildRuleSetURL` 拼接，`tag`/`device` 走 path escape，`token` 走 query escape）
-  - `system_host` 未配置或内容非法 -> 回退为 `type:"inline"`，本地 `Content` 反序列化为 `rules`
+  - `system_host` 已配置、`Content` 可规范化且规则条数 ≥ 3 -> 输出 `type:"remote"`、`format:"source"`、`url` 指向本服务规则集 open 接口 `.../open/rules/<tag>?software=singbox&device=<device>&token=<token>`（URL 由 `convert/ruleset.BuildRuleSetURL` 拼接，`tag` 走 path escape，`software`/`device`/`token` 走 query 参数）
+  - `system_host` 未配置、内容非法或规则条数少于 3 -> 回退为 `type:"inline"`，本地 `Content` 反序列化为 `rules`
 
 非法的本地 JSON 规则集在 inline 回退时会被跳过。规则集 URL 引用模式与降级策略详见[规则集管理](../modules/rule-set.md)。
 
@@ -337,7 +337,7 @@ Surge 渲染规则：
   - HTTP outbound 依据 `tls.enabled` 区分输出 `http` 或 `https`，并带上 `username` / `password`
   - 每个 WireGuard endpoint 产出一条 `名称 = wireguard, section-name=<名称>` 代理行与一段独立的 `[WireGuard <名称>]` 配置（`private-key`、`self-ip`/`self-ip-v6`、`mtu`、`peer = (...)`），并注册到代理名集合中供分组和规则引用
 - `[Proxy Group]` 复用同一份 include / exclude 筛选逻辑，且只引用已成功导出的代理名称
-- `[Rule]` 对 remote 规则集输出 `RULE-SET,<url>,<outbound>`；对本地规则集，`system_host` 已配置且内容可解析时输出单行 `RULE-SET,<本服务 open 接口 url>,<outbound>`，否则展开常见域名、CIDR、GEOIP 规则；最后追加 `FINAL,general`
+- `[Rule]` 对 remote 规则集输出 `RULE-SET,<url>,<outbound>`；对本地规则集，`system_host` 已配置、内容可解析且规则条数 ≥ 3 时输出单行 `RULE-SET,<本服务 open 接口 url>,<outbound>`，否则展开常见域名、CIDR、GEOIP 规则；最后追加 `FINAL,general`
 
 Shadowrocket 输出入口 `ShadowrocketGenerated` 与 Surge 一样复用前面的致命错误处理和 `resolveGenerateOutbounds(ctx, deviceCode)`，不组装 sing-box 专属的 Inbound、Endpoint、Experimental。它读取 `ListNodeGroups()`、`ListRuleSets()` 与系统 Host（`resolveSystemHost()`）后调用 `shadowrocket.Render(device.Code, device.Token, systemHost, ...)`，通过 `text/plain` 返回包含 `[General]`、`[Proxy]`、`[Proxy Group]`、`[Rule]` 的配置文本。
 
@@ -347,7 +347,7 @@ Shadowrocket 渲染规则：
 - `[Proxy]` 导出 Shadowsocks、ShadowsocksR、Trojan、VMess、VLESS；Hysteria2 和 TUIC 依据现有字段 best-effort 映射
 - Hysteria v1 等当前未导出的协议会跳过并记录 warning
 - `[Proxy Group]` 复用同一份 include / exclude 筛选逻辑，且只引用已成功导出的代理名称
-- `[Rule]` 对 remote 规则集输出 `RULE-SET,<url>,<outbound>`；对本地规则集，`system_host` 已配置且内容可解析时输出单行 `RULE-SET,<本服务 open 接口 url>,<outbound>`，否则展开常见域名、CIDR、GEOIP 规则；最后追加 `FINAL,general`
+- `[Rule]` 对 remote 规则集输出 `RULE-SET,<url>,<outbound>`；对本地规则集，`system_host` 已配置、内容可解析且规则条数 ≥ 3 时输出单行 `RULE-SET,<本服务 open 接口 url>,<outbound>`，否则展开常见域名、CIDR、GEOIP 规则；最后追加 `FINAL,general`
 
 ## 错误处理策略
 

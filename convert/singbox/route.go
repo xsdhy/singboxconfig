@@ -1,7 +1,6 @@
 package singbox
 
 import (
-	"encoding/json"
 	"singboxconfig/convert/ruleset"
 	"singboxconfig/entity"
 	"sort"
@@ -136,24 +135,28 @@ func baseRuleSets(device string, deviceToken string, systemHost string, ruleSets
 		}
 
 		// local / inline：系统 Host 可用且内容可规范化时，改为指向本服务 open 接口的远程 URL 引用。
+		// 但规则条数少于 ruleset.InlineThreshold 时直接落回下方 inline 内联，避免为极少量规则额外引入一次远程请求。
 		if strings.TrimSpace(systemHost) != "" {
-			if _, err := ruleset.NormalizeSingbox(ruleSet.Content); err == nil {
-				entries = append(entries, entity.SingRuleSet{
-					Type:           "remote",
-					Tag:            ruleSet.Tag,
-					Format:         "source",
-					URL:            ruleset.BuildRuleSetURL(systemHost, ruleSet.Tag, entity.SoftwareSingbox, device, deviceToken),
-					DownloadDetour: ruleSet.DownloadDetour,
-				})
-				continue
+			if count, err := ruleset.CountLines(ruleSet.Content); err == nil {
+				if count >= ruleset.InlineThreshold {
+					entries = append(entries, entity.SingRuleSet{
+						Type:           "remote",
+						Tag:            ruleSet.Tag,
+						Format:         "source",
+						URL:            ruleset.BuildRuleSetURL(systemHost, ruleSet.Tag, entity.SoftwareSingbox, device, deviceToken),
+						DownloadDetour: ruleSet.DownloadDetour,
+					})
+					continue
+				}
+			} else {
+				// 内容非法时不生成指向坏内容的远程 URL，回退到下面的 inline 内联逻辑（同样会跳过坏内容）。
+				logrus.Warnf("baseRuleSets: local ruleset content invalid, fallback to inline: tag=%s", ruleSet.Tag)
 			}
-			// 内容非法时不生成指向坏内容的远程 URL，回退到下面的 inline 内联逻辑（同样会跳过坏内容）。
-			logrus.Warnf("baseRuleSets: local ruleset content invalid, fallback to inline: tag=%s", ruleSet.Tag)
 		}
 
-		// 回退：内联展开。内容非法时跳过该 rule_set 条目。
-		var rules json.RawMessage
-		if err := json.Unmarshal([]byte(ruleSet.Content), &rules); err != nil {
+		// 回退：内联展开。剥离外层包装，把规则数组直接作为 inline rule_set 的 rules；内容非法时跳过该 rule_set 条目。
+		rules, err := ruleset.InlineRules(ruleSet.Content)
+		if err != nil {
 			continue
 		}
 		entries = append(entries, entity.SingRuleSet{

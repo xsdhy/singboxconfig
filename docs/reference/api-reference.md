@@ -29,7 +29,7 @@
 - `/open/surge/:device`：通过查询参数 `token` 鉴权
 - `/open/shadowrocket/:device`：通过查询参数 `token` 鉴权
 - `/open/ruleset/:tag`：无需额外鉴权
-- `/open/rules/:tag/:software/:device`：通过查询参数 `token` 鉴权（按设备）
+- `/open/rules/:tag`：通过查询参数 `software` / `device` / `token` 鉴权（按设备）
 
 ## 返回风格
 
@@ -126,7 +126,7 @@
 - 远程规则集不会在这里转发其远程 URL 内容
 - 历史兼容接口：无设备鉴权、不区分软件格式，新功能不再扩展该路径
 
-### `GET /open/rules/:tag/:software/:device`
+### `GET /open/rules/:tag`
 
 用途：
 
@@ -136,11 +136,11 @@
 路径参数：
 
 - `:tag`：规则集唯一标识（`RuleSet.Tag`）
-- `:software`：目标软件，取值 `singbox` / `surge` / `shadowrocket`
-- `:device`：设备编码，用于复用整份配置接口的设备解析、启用状态与 token 校验
 
 查询参数：
 
+- `software`：目标软件，取值 `singbox` / `surge` / `shadowrocket`
+- `device`：设备编码，用于复用整份配置接口的设备解析、启用状态与 token 校验
 - `token`：设备 token，必须与 `Device.Token` 一致
 
 鉴权与可见性（与整份配置接口一致）：
@@ -157,7 +157,7 @@
 | `surge` | `text/plain; charset=utf-8` | 每行 `类型,值`（**不含 policy 列**） |
 | `shadowrocket` | `text/plain; charset=utf-8` | 每行 `类型,值`（**不含 policy 列**） |
 
-字段映射（Surge / Shadowrocket，第一版）：`domain`→`DOMAIN`、`domain_suffix`→`DOMAIN-SUFFIX`、`domain_keyword`→`DOMAIN-KEYWORD`、`domain_regex`→`DOMAIN-REGEX`、`ip_cidr`→`IP-CIDR`/`IP-CIDR6`（按 IPv4/IPv6 区分）、`geoip`→`GEOIP,<大写值>`。未支持字段跳过并记录 warning。
+字段映射（Surge / Shadowrocket）：`domain`→`DOMAIN`、`domain_suffix`→`DOMAIN-SUFFIX`、`domain_keyword`→`DOMAIN-KEYWORD`、`domain_regex`→`DOMAIN-REGEX`、`ip_cidr`→`IP-CIDR`/`IP-CIDR6`（按 IPv4/IPv6 区分）、`geoip`→`GEOIP,<大写值>,no-resolve`、`process_name`/`process_path`→`PROCESS-NAME,<值>`（值含空格时用双引号包裹）。未支持字段跳过并记录 warning。
 
 返回码：
 
@@ -168,11 +168,11 @@
 - `404`：设备不存在 / 规则集不存在 / 规则集对当前设备不可见
 - `500`：local / inline 规则集 `Content` 不是合法 JSON
 
-> **规则集 URL 引用**：配置合法的 `system_host`（系统 Host，见[配置项说明](./configuration.md)）后，整份配置（`/open/generate`、`/open/surge`、`/open/shadowrocket`）会把有效的 local / inline 规则集由“展开/内联”改为指向本接口的远程规则集 URL：
-> - sing-box 输出 `type:"remote"`、`format:"source"`、`url` 指向 `.../open/rules/<tag>/singbox/<device>?token=<token>`；
+> **规则集 URL 引用**：配置合法的 `system_host`（系统 Host，见[配置项说明](./configuration.md)）后，整份配置（`/open/generate`、`/open/surge`、`/open/shadowrocket`）会把有效且**规则条数 ≥ 3** 的 local / inline 规则集由“展开/内联”改为指向本接口的远程规则集 URL：
+> - sing-box 输出 `type:"remote"`、`format:"source"`、`url` 指向 `.../open/rules/<tag>?software=singbox&device=<device>&token=<token>`；
 > - Surge / Shadowrocket 输出单行 `RULE-SET,<url>,<policy>`。
 >
-> URL 中的 `tag`、`device` 使用 path escape，`token` 使用 query escape。`system_host` 未配置或非法时回退到原展开/内联行为；remote 规则集行为不变。生成的 URL 携带设备 token，设备 token 轮换后旧整份配置里的规则集 URL 会失效，需重新拉取整份配置。
+> URL 中的 `tag` 使用 path escape，`software` / `device` / `token` 走 query 参数（query escape）。**规则条数少于 3 条**时不引用本接口，直接展开/内联，避免为极少量规则额外引入一次远程请求。`system_host` 未配置或非法时回退到原展开/内联行为；remote 规则集行为不变。生成的 URL 携带设备 token，设备 token 轮换后旧整份配置里的规则集 URL 会失效，需重新拉取整份配置。
 
 ### 认证管理
 

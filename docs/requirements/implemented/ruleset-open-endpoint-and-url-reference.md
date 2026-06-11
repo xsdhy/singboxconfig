@@ -5,6 +5,10 @@
 - 完成时间：2026-06-11
 - 关联模块：[规则集管理](../../modules/rule-set.md)、[配置生成流程](../../architecture/config-generation.md)、[API 接口列表](../../reference/api-reference.md)、[设备管理](../../modules/device.md)
 
+> **后续变更**：本文档记录的是首版实现，其中接口路径 `/open/rules/:tag/:software/:device` 与“配置 `system_host` 后所有 local / inline 规则集都改 URL 引用”的行为已被后续需求调整为
+> `/open/rules/:tag?software=...&device=...&token=...`（software / device 改走 query 参数），且仅当规则条数 ≥ 3 时才改 URL 引用、少于 3 条仍内联展开。
+> 详见 [规则集 open 接口路径改为 query 参数 + 少量规则改为内联展开](./ruleset-open-query-params-and-inline-threshold.md)。下文的路径与验收标准为首版快照，当前行为以后续需求与[各篇 live 文档](../../reference/api-reference.md)为准。
+
 ## 背景
 
 当前 `/open` 下只有“整份配置”接口，按设备输出各软件的**完整配置**：

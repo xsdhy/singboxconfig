@@ -12,7 +12,7 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-// GetRulesBySoftware 处理“规则集级” open 接口：GET /open/rules/:tag/:software/:device?token=...
+// GetRulesBySoftware 处理“规则集级” open 接口：GET /open/rules/:tag?software=...&device=...&token=...
 //
 // 它针对单个规则集、按指定软件格式输出该规则集的规则内容（而非整份配置），
 // 供对应客户端作为远程规则集直接加载。鉴权与可见性完全复用整份配置接口的语义：
@@ -25,8 +25,8 @@ import (
 // 真正的解析与渲染交给 convert/ruleset 纯函数完成，本函数只负责 HTTP 编排，因此不写 HTTP 层单测。
 func (s *Service) GetRulesBySoftware(c *gin.Context) {
 	tag := c.Param("tag")
-	softwareParam := c.Param("software")
-	deviceCode := c.Param("device")
+	softwareParam := c.Query("software")
+	deviceCode := c.Query("device")
 	token := c.Query("token")
 
 	// 1. 校验目标软件，未知软件返回 400。
@@ -90,6 +90,15 @@ func (s *Service) GetRulesBySoftware(c *gin.Context) {
 		}
 		for _, warning := range warnings {
 			logrus.Warnf("GetRulesBySoftware: tag=%s %s", ruleSet.Tag, warning)
+		}
+		// Surge 规则集首行以注释（#）标注规则集名称，便于在客户端中辨识来源；
+		// 名称缺省时回退到 tag，避免输出空注释。Shadowrocket 不需要该首行。
+		if software == entity.SoftwareSurge {
+			name := strings.TrimSpace(ruleSet.Name)
+			if name == "" {
+				name = ruleSet.Tag
+			}
+			lines = append([]string{"# " + name}, lines...)
 		}
 		c.Data(http.StatusOK, "text/plain; charset=utf-8", []byte(strings.Join(lines, "\n")))
 	}

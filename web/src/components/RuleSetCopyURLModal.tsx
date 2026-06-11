@@ -19,7 +19,7 @@ interface Props {
 }
 
 // RuleSetCopyURLModal 让用户选择一个设备后，按三种软件复制该规则集的 open 接口地址。
-// 地址形如 <systemHost>/open/rules/:tag/:software/:device?token=，必须带设备 + token。
+// 地址形如 <systemHost>/open/rules/:tag?software=...&device=...&token=...，必须带设备 + token。
 export default function RuleSetCopyURLModal({ visible, ruleSet, devices, systemHost, onCancel }: Props) {
   // 只展示对当前规则集可见、且已启用的设备（禁用设备访问接口会被 403）。
   const visibleDevices = useMemo(

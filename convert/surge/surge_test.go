@@ -143,7 +143,7 @@ func TestRenderSkipsUnsupportedProtocolAndKeepsGroupReferencesValid(t *testing.T
 }
 
 func TestRenderExpandsRuleSets(t *testing.T) {
-	ruleContent := `{"rules":[{"domain":["exact.example.com"],"domain_suffix":["example.com"],"domain_keyword":["video"],"domain_regex":["^api\\."],"ip_cidr":["192.168.0.0/16","2001:db8::/32"],"geoip":["cn"]}]}`
+	ruleContent := `{"rules":[{"domain":["exact.example.com"],"domain_suffix":["example.com"],"domain_keyword":["video"],"domain_regex":["^api\\."],"ip_cidr":["192.168.0.0/16","2001:db8::/32"],"geoip":["cn"],"process_name":["WeChat"],"process_path":["/Applications/QoderWork CN.app/Contents/MacOS/QoderWork CN"]}]}`
 	cfg := Render("phone", "", "", []entity.SingBoxOut{
 		{
 			Type:       string(entity.OutboundProtocolShadowsocks),
@@ -168,7 +168,9 @@ func TestRenderExpandsRuleSets(t *testing.T) {
 	mustContain(t, cfg, "DOMAIN-REGEX,^api\\.,general")
 	mustContain(t, cfg, "IP-CIDR,192.168.0.0/16,general")
 	mustContain(t, cfg, "IP-CIDR6,2001:db8::/32,general")
-	mustContain(t, cfg, "GEOIP,CN,general")
+	mustContain(t, cfg, "GEOIP,CN,general,no-resolve")
+	mustContain(t, cfg, "PROCESS-NAME,WeChat,general")
+	mustContain(t, cfg, "PROCESS-NAME,\"/Applications/QoderWork CN.app/Contents/MacOS/QoderWork CN\",general")
 	mustContain(t, cfg, "FINAL,general")
 }
 
@@ -243,23 +245,42 @@ func mustNotContain(t *testing.T, text string, unexpected string) {
 	}
 }
 
-// TestRenderLocalRuleSetURLReference 验证配置系统 Host 后，local 规则集输出为单行
-// RULE-SET,<url>,<policy>，不再逐条展开，且 URL 指向本服务 open 接口并正确转义。
+// TestRenderLocalRuleSetURLReference 验证配置系统 Host 后，规则条数达到阈值的 local 规则集输出为单行
+// RULE-SET,<url>,<policy>，不再逐条展开，且 URL 指向本服务 open 接口并正确转义（software / device 走 query）。
 func TestRenderLocalRuleSetURLReference(t *testing.T) {
 	cfg := Render("iphone 15", "tok en", "https://config.example.com/", []entity.SingBoxOut{
 		{Tag: "香港01", Type: string(entity.OutboundProtocolShadowsocks), Server: "hk.example.com", ServerPort: 8388, Method: "aes-128-gcm", Password: "pass"},
 	}, nil, nil, []*entity.NodeGroup{
 		{Tag: "general", GroupType: string(entity.NodeGroupTypeSelector), Include: "香港"},
 	}, []*entity.RuleSet{
-		{Tag: "geosite-cn", RuleSetType: string(entity.RuleSetTypeLocal), Outbound: "general", Content: `{"version":1,"rules":[{"domain_suffix":["cn"]}]}`},
+		{Tag: "geosite-cn", RuleSetType: string(entity.RuleSetTypeLocal), Outbound: "general", Content: `{"version":1,"rules":[{"domain_suffix":["cn","com","net"]}]}`},
 	})
 
-	wantLine := "RULE-SET,https://config.example.com/open/rules/geosite-cn/surge/iphone%2015?token=tok+en,general"
+	wantLine := "RULE-SET,https://config.example.com/open/rules/geosite-cn?device=iphone+15&software=surge&token=tok+en,general"
 	if !strings.Contains(cfg, wantLine) {
 		t.Errorf("config missing expected rule-set line:\n%s\n---\n%s", wantLine, cfg)
 	}
 	if strings.Contains(cfg, "DOMAIN-SUFFIX,cn") {
 		t.Errorf("local ruleset should not be expanded when system host configured:\n%s", cfg)
+	}
+}
+
+// TestRenderLocalRuleSetInlineBelowThreshold 验证即便配置了系统 Host，规则条数少于阈值的 local 规则集
+// 仍逐条内联展开，而不是输出 RULE-SET URL 引用。
+func TestRenderLocalRuleSetInlineBelowThreshold(t *testing.T) {
+	cfg := Render("iphone 15", "tok en", "https://config.example.com/", []entity.SingBoxOut{
+		{Tag: "香港01", Type: string(entity.OutboundProtocolShadowsocks), Server: "hk.example.com", ServerPort: 8388, Method: "aes-128-gcm", Password: "pass"},
+	}, nil, nil, []*entity.NodeGroup{
+		{Tag: "general", GroupType: string(entity.NodeGroupTypeSelector), Include: "香港"},
+	}, []*entity.RuleSet{
+		{Tag: "geosite-cn", RuleSetType: string(entity.RuleSetTypeLocal), Outbound: "general", Content: `{"version":1,"rules":[{"domain_suffix":["cn","com"]}]}`},
+	})
+
+	if !strings.Contains(cfg, "DOMAIN-SUFFIX,cn,general") || !strings.Contains(cfg, "DOMAIN-SUFFIX,com,general") {
+		t.Errorf("ruleset below threshold should be expanded inline:\n%s", cfg)
+	}
+	if strings.Contains(cfg, "/open/rules/geosite-cn") {
+		t.Errorf("ruleset below threshold should not emit a RULE-SET url reference:\n%s", cfg)
 	}
 }
 

@@ -85,6 +85,8 @@ const (
 	ruleTypeIPCIDR6 ruleType = "IP-CIDR6"
 	// ruleTypeGEOIP 表示国家或地区 IP 库匹配规则。
 	ruleTypeGEOIP ruleType = "GEOIP"
+	// ruleTypeProcessName 表示进程匹配规则，值可为进程名或可执行文件全路径。
+	ruleTypeProcessName ruleType = "PROCESS-NAME"
 	// ruleTypeRuleSet 表示远程规则集引用。
 	ruleTypeRuleSet ruleType = "RULE-SET"
 	// ruleTypeFinal 表示兜底规则。
@@ -660,14 +662,18 @@ func renderRuleSection(ctx *renderContext, deviceCode string, deviceToken string
 		}
 
 		// local / inline：系统 Host 可用且内容可解析时，输出单行 RULE-SET,<url>,<policy> 引用本服务 open 接口。
+		// 但规则条数少于 ruleset.InlineThreshold 时直接内联展开，避免为极少量规则额外引入一次远程请求。
 		if host != "" {
-			if _, _, err := ruleset.RenderLines(ruleSet.Content); err == nil {
-				rulesetURL := ruleset.BuildRuleSetURL(host, ruleSet.Tag, entity.SoftwareShadowrocket, deviceCode, deviceToken)
-				lines = append(lines, strings.Join([]string{string(ruleTypeRuleSet), rulesetURL, policy}, ","))
-				continue
+			if count, err := ruleset.CountLines(ruleSet.Content); err == nil {
+				if count >= ruleset.InlineThreshold {
+					rulesetURL := ruleset.BuildRuleSetURL(host, ruleSet.Tag, entity.SoftwareShadowrocket, deviceCode, deviceToken)
+					lines = append(lines, strings.Join([]string{string(ruleTypeRuleSet), rulesetURL, policy}, ","))
+					continue
+				}
+			} else {
+				// 内容非法时不生成指向坏内容的 URL，回退到逐条展开（展开同样会跳过坏内容并记录 warning）。
+				ctx.warnf("Shadowrocket local ruleset content invalid, fallback to expand: tag=%s", ruleSet.Tag)
 			}
-			// 内容非法时不生成指向坏内容的 URL，回退到逐条展开（展开同样会跳过坏内容并记录 warning）。
-			ctx.warnf("Shadowrocket local ruleset content invalid, fallback to expand: tag=%s", ruleSet.Tag)
 		}
 		lines = append(lines, expandLocalRuleSet(ctx, ruleSet, policy)...)
 	}
@@ -697,6 +703,10 @@ type singBoxRule struct {
 	IPCIDR []string `json:"ip_cidr"`
 	// GEOIP 表示国家或地区 IP 库匹配列表。
 	GEOIP []string `json:"geoip"`
+	// ProcessName 表示进程名匹配列表（如 WeChat）。
+	ProcessName []string `json:"process_name"`
+	// ProcessPath 表示进程可执行文件全路径匹配列表（如 /Applications/WeChat.app/Contents/MacOS/WeChat）。
+	ProcessPath []string `json:"process_path"`
 }
 
 func expandLocalRuleSet(ctx *renderContext, ruleSet *entity.RuleSet, policy string) []string {
@@ -719,8 +729,22 @@ func expandLocalRuleSet(ctx *renderContext, ruleSet *entity.RuleSet, policy stri
 			lines = append(lines, strings.Join([]string{string(itemType), cidr, policy}, ","))
 		}
 		for _, geoip := range rule.GEOIP {
-			lines = append(lines, strings.Join([]string{string(ruleTypeGEOIP), strings.ToUpper(geoip), policy}, ","))
+			lines = append(lines, strings.Join([]string{string(ruleTypeGEOIP), strings.ToUpper(geoip), policy, "no-resolve"}, ","))
 		}
+		lines = appendProcessRules(lines, rule.ProcessName, policy)
+		lines = appendProcessRules(lines, rule.ProcessPath, policy)
+	}
+	return lines
+}
+
+// appendProcessRules 把进程名 / 进程路径渲染为 PROCESS-NAME 规则行，带空格的值用双引号包裹。
+func appendProcessRules(lines []string, values []string, policy string) []string {
+	for _, value := range values {
+		value = strings.TrimSpace(value)
+		if value == "" {
+			continue
+		}
+		lines = append(lines, strings.Join([]string{string(ruleTypeProcessName), ruleset.QuoteValue(value), policy}, ","))
 	}
 	return lines
 }

@@ -64,7 +64,7 @@
 - `GET /open/generate/:device?token=...`：输出 sing-box JSON
 - `GET /open/surge/:device?token=...`：输出 Surge 配置文本
 - `GET /open/shadowrocket/:device?token=...`：输出 Shadowrocket 配置文本
-- `GET /open/rules/:tag/:software/:device?token=...`：输出单个规则集在目标软件下的规则内容（复用同一套设备解析与鉴权）
+- `GET /open/rules/:tag?software=...&device=...&token=...`：输出单个规则集在目标软件下的规则内容（复用同一套设备解析与鉴权）
 
 处理顺序：
 

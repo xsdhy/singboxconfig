@@ -73,7 +73,9 @@
 `convert/surge.Render()` 和 `convert/shadowrocket.Render()` 会把规则集输出到 `[Rule]` 段：
 
 - `ruleSetType == "remote"`：输出 `RULE-SET,<url>,<outbound>`
-- `local` / `inline`：解析 `content` 中常见的 `domain`、`domain_suffix`、`domain_keyword`、`domain_regex`、`ip_cidr`、`geoip` 字段，并展开为对应客户端的规则行
+- `local` / `inline`：解析 `content` 中常见的 `domain`、`domain_suffix`、`domain_keyword`、`domain_regex`、`ip_cidr`、`geoip`、`process_name`、`process_path` 字段，并展开为对应客户端的规则行
+  - `geoip`：输出大写国家/地区代码并附带 `no-resolve` 选项，例如 `GEOIP,CN,DIRECT,no-resolve`
+  - `process_name` / `process_path`：两者都输出为 `PROCESS-NAME` 规则行（Surge 的 PROCESS-NAME 同时接受进程名与可执行文件全路径）；值含空格时用双引号包裹，例如 `PROCESS-NAME,"/Applications/QoderWork CN.app/Contents/MacOS/QoderWork CN",DIRECT`
 - 规则的 `outbound` 既不是内置 `DIRECT` / `REJECT`，也未命中任何已导出的代理或策略组时，**跳过该条规则并记录 warning**（按各软件实际可生成的代理/策略组判定）
 - 非法本地 JSON 会跳过并记录 warning，不中断整体配置生成
 - 最后固定追加 `FINAL,general`（兜底策略不参与上述存在性校验）
@@ -82,14 +84,16 @@
 
 除“展开/内联”外，规则集还支持以**远程 URL 引用**方式输出，由全局设置 `system_host`（系统 Host）控制：
 
-- 配置合法 `system_host` 后，三条整份配置链路会把**有效的** local / inline 规则集改为指向本服务规则集 open 接口的远程引用：
-  - sing-box：`baseRuleSets()` 输出 `type:"remote"`、`format:"source"`、`url` 指向 `.../open/rules/<tag>/singbox/<device>?token=<token>`
+- 配置合法 `system_host` 后，三条整份配置链路会把**有效且规则条数 ≥ 3** 的 local / inline 规则集改为指向本服务规则集 open 接口的远程引用：
+  - sing-box：`baseRuleSets()` 输出 `type:"remote"`、`format:"source"`、`url` 指向 `.../open/rules/<tag>?software=singbox&device=<device>&token=<token>`
   - Surge / Shadowrocket：`renderRuleSection()` 输出单行 `RULE-SET,<url>,<policy>`，不再逐条展开
-- URL 由 `convert/ruleset.BuildRuleSetURL()` 拼接：`tag`、`device` 使用 path escape，`token` 使用 query escape，`system_host` 先去掉尾斜杠
-- 客户端通过 `GET /open/rules/:tag/:software/:device?token=...` 拉取该规则集内容（见[API 文档](../reference/api-reference.md)），解析/渲染逻辑统一收敛在 `convert/ruleset` 包
+- **规则条数阈值**：规则条数少于 `convert/ruleset.InlineThreshold`（当前为 3）时，即便配置了 `system_host` 也不引用 open 接口，而是直接展开/内联，避免为极少量规则额外引入一次远程请求；条数按 `convert/ruleset.CountLines()`（与逐行展开口径一致，每个域名/CIDR/进程项各计一条）统计
+- URL 由 `convert/ruleset.BuildRuleSetURL()` 拼接：`tag` 走路径并使用 path escape，`software` / `device` / `token` 走 query 参数（query escape），`system_host` 先去掉尾斜杠
+- 客户端通过 `GET /open/rules/:tag?software=...&device=...&token=...` 拉取该规则集内容（见[API 文档](../reference/api-reference.md)），解析/渲染逻辑统一收敛在 `convert/ruleset` 包
 - **鉴权模型**：规则集 open 接口复用整份配置接口的设备解析、启用状态、token 校验，并额外校验 `AbleDevices` 可见性（不可见按 404）
 - **降级与兼容**：
   - `system_host` 未配置或非法：回退到原“展开/内联”行为，旧部署零配置可用
+  - 规则条数少于阈值：回退到原“展开/内联”行为
   - local / inline `Content` 非法且 host 已配置：不生成指向坏内容的远程 URL，回退到展开/内联（仍会跳过坏内容并记录 warning）
   - remote 规则集：始终保持原 `URL` 引用，不受影响
   - 有效规则集过滤：sing-box 先按 `AbleDevices` 与 `Outbound` 存在性过滤，仅对有效规则集同时输出 `route.rule_set` 与 `route.rules`，避免输出“会被客户端下载却不被引用”的远程规则集
@@ -132,8 +136,8 @@
 - 规则集派生的普通规则会校验 `outbound` 是否存在（不存在则跳过），但 `downloadDetour`、FINAL/Final 兜底等其它引用仍不做校验
 - `ableDevices` 采用子串匹配，存在误匹配空间
 - 本地规则集保存为字符串，不做结构化字段校验
-- `GET /open/ruleset/:tag` 是无鉴权的历史兼容接口，仅适合本地规则集；面向客户端的多软件输出请用 `GET /open/rules/:tag/:software/:device`（带设备鉴权）。远程规则集没有单独下载代理接口
-- Surge / Shadowrocket 规则集文件第一版仅映射 `domain`/`domain_suffix`/`domain_keyword`/`domain_regex`/`ip_cidr`/`geoip`，其它字段跳过并记录 warning
+- `GET /open/ruleset/:tag` 是无鉴权的历史兼容接口，仅适合本地规则集；面向客户端的多软件输出请用 `GET /open/rules/:tag?software=...&device=...&token=...`（带设备鉴权）。远程规则集没有单独下载代理接口
+- Surge / Shadowrocket 规则集文件目前映射 `domain`/`domain_suffix`/`domain_keyword`/`domain_regex`/`ip_cidr`/`geoip`/`process_name`/`process_path`，其它字段跳过并记录 warning
 
 ## 适合更新本文档的场景
 
